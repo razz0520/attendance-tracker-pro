@@ -1,8 +1,10 @@
+import Auth from './components/Auth';
 import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from "./lib/supabaseClient"; // Ensure this path is correct
 import { 
   Plus, Trash2, Check, X, RotateCcw, 
   TrendingUp, Calendar, Settings, PieChart, 
-  Sun, Moon, Info, Download, Search
+  Sun, Moon, Info, Download, Search, LogOut
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -13,61 +15,104 @@ import {
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const App = () => {
-  // State initialization with LocalStorage
-  const [subjects, setSubjects] = useState(() => {
-    const saved = localStorage.getItem('attendance_data');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // --- State Declarations ---
+  const [subjects, setSubjects] = useState([]);
+  const [user, setUser] = useState(null); 
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [view, setView] = useState('dashboard'); // dashboard | analytics | settings
+  const [view, setView] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // New Subject Form State
   const [newSub, setNewSub] = useState({ name: '', target: 75, color: COLORS[0] });
 
-  // Persist to LocalStorage
+  // --- Auth & Data Sync Hook ---
   useEffect(() => {
-    localStorage.setItem('attendance_data', JSON.stringify(subjects));
-  }, [subjects]);
-
-  // Logic Functions
-  const addSubject = () => {
-    if (!newSub.name.trim()) return;
-    const subject = {
-      id: Date.now(),
-      ...newSub,
-      history: []
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      if (session?.user) fetchSubjects(); 
     };
-    setSubjects([...subjects, subject]);
-    setNewSub({ name: '', target: 75, color: COLORS[0] });
-    setIsModalOpen(false);
-  };
 
-  const deleteSubject = (id) => {
-    if (window.confirm('Delete this subject?')) {
-      setSubjects(subjects.filter(s => s.id !== id));
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchSubjects();
+      else setSubjects([]);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- Data Transformation Layer ---
+  // This maps Supabase 'attendance_logs' to your UI's 'history' format
+  const fetchSubjects = async () => {
+    const { data, error } = await supabase
+      .from('subjects')
+      .select('*, attendance_logs(*)'); 
+    
+    if (!error && data) {
+      const transformedData = data.map(s => ({
+        ...s,
+        target: s.target_percentage, // Mapping DB column to UI state
+        history: (s.attendance_logs || []).map(log => ({
+          id: log.id,
+          date: new Date(log.date).getTime(),
+          status: log.status === 'present' ? 'p' : 'a' // Mapping 'present' to 'p'
+        }))
+      }));
+      setSubjects(transformedData);
+    } else if (error) {
+      console.error("Cloud Fetch Error:", error.message);
     }
   };
 
-  const markAttendance = (id, status) => {
-    setSubjects(subjects.map(s => {
-      if (s.id === id) {
-        return { ...s, history: [...s.history, { date: Date.now(), status }] };
-      }
-      return s;
-    }));
+  // --- Cloud Logic Functions ---
+  const addSubject = async () => {
+    if (!newSub.name.trim()) return;
+    const { error } = await supabase
+      .from('subjects')
+      .insert([{ name: newSub.name, target_percentage: newSub.target }]);
+
+    if (!error) {
+      fetchSubjects();
+      setNewSub({ name: '', target: 75, color: COLORS[0] });
+      setIsModalOpen(false);
+    }
   };
 
-  const undoLast = (id) => {
-    setSubjects(subjects.map(s => {
-      if (s.id === id) {
-        return { ...s, history: s.history.slice(0, -1) };
-      }
-      return s;
-    }));
+  const deleteSubject = async (id) => {
+    if (window.confirm('Delete this subject permanently from the cloud?')) {
+      const { error } = await supabase.from('subjects').delete().eq('id', id);
+      if (!error) fetchSubjects();
+    }
   };
 
+  const markAttendance = async (subjectId, status) => {
+    const dbStatus = status === 'p' ? 'present' : 'absent';
+    const { error } = await supabase
+      .from('attendance_logs')
+      .insert([{ subject_id: subjectId, status: dbStatus }]);
+
+    if (!error) fetchSubjects();
+  };
+
+  const undoLast = async (subject) => {
+    if (!subject.history || subject.history.length === 0) return;
+    const lastLogId = subject.history[subject.history.length - 1].id;
+    
+    const { error } = await supabase
+      .from('attendance_logs')
+      .delete()
+      .eq('id', lastLogId);
+
+    if (!error) fetchSubjects();
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // --- Calculation Logic (Derived State) ---
   const calculateStats = (subject) => {
     const present = subject.history.filter(h => h.status === 'p').length;
     const total = subject.history.length;
@@ -100,6 +145,22 @@ const App = () => {
     });
     return totalC === 0 ? 0 : Math.round((totalP / totalC) * 100);
   }, [subjects]);
+
+  // --- Auth Guard ---
+// --- Auth Guard ---
+if (!user) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-6">
+      <div className="flex flex-col items-center space-y-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-black tracking-tighter">Attendance Pro</h1>
+          <p className="text-slate-500 mt-2">Secure Cloud Synchronization</p>
+        </div>
+        <Auth /> {/* This replaces the placeholder */}
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} pb-24 md:pb-0 md:pl-20`}>
@@ -154,7 +215,7 @@ const App = () => {
                   <div key={subject.id} className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'} border p-6 rounded-[2rem] shadow-sm hover:shadow-xl transition-all group`}>
                     <div className="flex justify-between items-start mb-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold" style={{ backgroundColor: subject.color }}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold bg-indigo-500">
                           {subject.name[0]}
                         </div>
                         <h3 className="font-bold text-lg">{subject.name}</h3>
@@ -189,7 +250,7 @@ const App = () => {
                         <X size={20} />
                         <span className="text-[10px] font-bold uppercase">Absent</span>
                       </button>
-                      <button onClick={() => undoLast(subject.id)} className="flex flex-col items-center gap-1 p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-600 hover:text-white transition-all">
+                      <button onClick={() => undoLast(subject)} className="flex flex-col items-center gap-1 p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-600 hover:text-white transition-all">
                         <RotateCcw size={18} />
                         <span className="text-[10px] font-bold uppercase">Undo</span>
                       </button>
@@ -251,6 +312,15 @@ const App = () => {
             <div className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'} border rounded-[2rem] overflow-hidden`}>
               <div className="p-6 border-b border-slate-800/10 flex items-center justify-between">
                 <div>
+                  <h4 className="font-bold">Account</h4>
+                  <p className="text-sm text-slate-500">{user.email}</p>
+                </div>
+                <button onClick={handleLogout} className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                  <LogOut size={20} />
+                </button>
+              </div>
+              <div className="p-6 flex items-center justify-between">
+                <div>
                   <h4 className="font-bold">Export Data</h4>
                   <p className="text-sm text-slate-500">Save history to JSON file</p>
                 </div>
@@ -266,23 +336,6 @@ const App = () => {
                   className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all"
                 >
                   <Download size={20} />
-                </button>
-              </div>
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-red-500">Reset System</h4>
-                  <p className="text-sm text-slate-500">Wipe all subjects and local logs</p>
-                </div>
-                <button 
-                  onClick={() => {
-                    if(confirm("Factory reset?")) {
-                      setSubjects([]);
-                      localStorage.clear();
-                    }
-                  }}
-                  className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all"
-                >
-                  Clear All
                 </button>
               </div>
             </div>
