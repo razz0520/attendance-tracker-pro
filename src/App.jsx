@@ -1,23 +1,23 @@
 import Auth from './components/Auth';
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from "./lib/supabaseClient"; // Ensure this path is correct
-import { 
-  Plus, Trash2, Check, X, RotateCcw, 
-  TrendingUp, Calendar, Settings, PieChart, 
-  Sun, Moon, Info, Download, Search, LogOut
+import {
+  Plus, Trash2, Check, X, RotateCcw,
+  TrendingUp, Calendar, Settings, PieChart,
+  Sun, Moon, Info, Download, Search, LogOut, AlertTriangle
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, PieChart as RePie, 
-  Pie, Cell 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Pie, Cell,
 } from 'recharts';
+import { calculateSubjectStats } from './utils/attendanceLogic';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const App = () => {
   // --- State Declarations ---
   const [subjects, setSubjects] = useState([]);
-  const [user, setUser] = useState(null); 
+  const [user, setUser] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [view, setView] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,7 +29,7 @@ const App = () => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
-      if (session?.user) fetchSubjects(); 
+      if (session?.user) fetchSubjects();
     };
 
     getSession();
@@ -48,8 +48,8 @@ const App = () => {
   const fetchSubjects = async () => {
     const { data, error } = await supabase
       .from('subjects')
-      .select('*, attendance_logs(*)'); 
-    
+      .select('*, attendance_logs(*)');
+
     if (!error && data) {
       const transformedData = data.map(s => ({
         ...s,
@@ -99,7 +99,7 @@ const App = () => {
   const undoLast = async (subject) => {
     if (!subject.history || subject.history.length === 0) return;
     const lastLogId = subject.history[subject.history.length - 1].id;
-    
+
     const { error } = await supabase
       .from('attendance_logs')
       .delete()
@@ -113,26 +113,9 @@ const App = () => {
   };
 
   // --- Calculation Logic (Derived State) ---
-  const calculateStats = (subject) => {
-    const present = subject.history.filter(h => h.status === 'p').length;
-    const total = subject.history.length;
-    const percentage = total === 0 ? 0 : Math.round((present / total) * 100);
-    
-    let actionText = "";
-    if (total === 0) {
-      actionText = "No classes recorded.";
-    } else if (percentage >= subject.target) {
-      const missable = Math.floor((present - (subject.target / 100) * total) / (subject.target / 100));
-      actionText = missable > 0 ? `Can miss ${missable} more classes.` : "On track. Don't miss next.";
-    } else {
-      const needed = Math.ceil(((subject.target / 100) * total - present) / (1 - subject.target / 100));
-      actionText = `Attend next ${needed} classes to reach ${subject.target}%.`;
-    }
 
-    return { present, total, percentage, actionText };
-  };
 
-  const filteredSubjects = subjects.filter(s => 
+  const filteredSubjects = subjects.filter(s =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -147,24 +130,24 @@ const App = () => {
   }, [subjects]);
 
   // --- Auth Guard ---
-// --- Auth Guard ---
-if (!user) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-6">
-      <div className="flex flex-col items-center space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-black tracking-tighter">Attendance Pro</h1>
-          <p className="text-slate-500 mt-2">Secure Cloud Synchronization</p>
+  // --- Auth Guard ---
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-6">
+        <div className="flex flex-col items-center space-y-8">
+          <div className="text-center">
+            <h1 className="text-4xl font-black tracking-tighter">Attendance Pro</h1>
+            <p className="text-slate-500 mt-2">Secure Cloud Synchronization</p>
+          </div>
+          <Auth /> {/* This replaces the placeholder */}
         </div>
-        <Auth /> {/* This replaces the placeholder */}
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} pb-24 md:pb-0 md:pl-20`}>
-      
+
       {/* Navigation Sidebar */}
       <nav className={`fixed bottom-0 left-0 w-full md:w-20 md:h-full z-50 flex md:flex-col items-center justify-around md:justify-center gap-8 p-4 border-t md:border-r ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'} backdrop-blur-xl transition-colors`}>
         <button onClick={() => setView('dashboard')} className={`p-3 rounded-2xl transition-all ${view === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400'}`}>
@@ -192,8 +175,8 @@ if (!user) {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -208,15 +191,14 @@ if (!user) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredSubjects.map(subject => {
-                const { percentage, actionText } = calculateStats(subject);
-                const isCritical = percentage < subject.target;
+                const { percentage, actionText, isCritical } = calculateSubjectStats(subject);
 
                 return (
-                  <div key={subject.id} className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'} border p-6 rounded-[2rem] shadow-sm hover:shadow-xl transition-all group`}>
+                  <div key={subject.id} className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'} border p-6 rounded-[2rem] shadow-sm hover:shadow-xl transition-all group ${isCritical ? 'shadow-red-500/20 border-red-500/50' : ''}`}>
                     <div className="flex justify-between items-start mb-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold bg-indigo-500">
-                          {subject.name[0]}
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold ${isCritical ? 'bg-red-500' : 'bg-indigo-500'} transition-colors`}>
+                          {isCritical ? <AlertTriangle size={24} /> : subject.name[0]}
                         </div>
                         <h3 className="font-bold text-lg">{subject.name}</h3>
                       </div>
@@ -227,17 +209,17 @@ if (!user) {
 
                     <div className="mb-6">
                       <div className="flex justify-between items-end mb-2">
-                        <span className="text-3xl font-black">{percentage}%</span>
+                        <span className={`text-3xl font-black ${isCritical ? 'text-red-500' : ''}`}>{percentage}%</span>
                         <span className="text-xs font-bold uppercase opacity-50">Target: {subject.target}%</span>
                       </div>
                       <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-1000 ${isCritical ? 'bg-red-500' : 'bg-emerald-500'}`} 
-                          style={{ width: `${Math.min(percentage, 100)}%` }} 
+                        <div
+                          className={`h-full transition-all duration-1000 ${isCritical ? 'bg-red-500' : 'bg-emerald-500'}`}
+                          style={{ width: `${Math.min(percentage, 100)}%` }}
                         />
                       </div>
-                      <p className={`text-xs mt-3 flex items-center gap-1.5 font-bold ${isCritical ? 'text-amber-500' : 'text-emerald-600'}`}>
-                        <Info size={14} /> {actionText}
+                      <p className={`text-xs mt-3 flex items-center gap-1.5 font-bold ${isCritical ? 'text-red-500' : 'text-emerald-600'}`}>
+                        {isCritical && <Info size={14} />} {actionText}
                       </p>
                     </div>
 
@@ -264,45 +246,45 @@ if (!user) {
 
         {view === 'analytics' && (
           <div className="space-y-8 animate-in zoom-in-95 duration-500">
-             <h2 className="text-3xl font-black">Performance Insights</h2>
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'} border p-6 rounded-[2rem] h-80`}>
-                  <h3 className="font-bold mb-6 flex items-center gap-2 text-indigo-500"><TrendingUp size={20} /> Subject Comparison</h3>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={subjects.map(s => ({ name: s.name, pct: calculateStats(s).percentage }))}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#e2e8f0'} />
-                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: isDarkMode ? '#0f172a' : '#fff', borderRadius: '12px', border: 'none' }}
-                      />
-                      <Bar dataKey="pct" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+            <h2 className="text-3xl font-black">Performance Insights</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'} border p-6 rounded-[2rem] h-80`}>
+                <h3 className="font-bold mb-6 flex items-center gap-2 text-indigo-500"><TrendingUp size={20} /> Subject Comparison</h3>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={subjects.map(s => ({ name: s.name, pct: calculateSubjectStats(s).percentage }))}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#e2e8f0'} />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: isDarkMode ? '#0f172a' : '#fff', borderRadius: '12px', border: 'none' }}
+                    />
+                    <Bar dataKey="pct" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
 
-                <div className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'} border p-6 rounded-[2rem] h-80`}>
-                   <h3 className="font-bold mb-6 flex items-center gap-2 text-emerald-500"><PieChart size={20} /> Data Distribution</h3>
-                   <ResponsiveContainer width="100%" height="80%">
-                      <RePie>
-                         <Pie
-                           data={[
-                             { name: 'Present', value: subjects.reduce((acc, s) => acc + s.history.filter(h => h.status === 'p').length, 0) },
-                             { name: 'Absent', value: subjects.reduce((acc, s) => acc + s.history.filter(h => h.status === 'a').length, 0) }
-                           ]}
-                           innerRadius={60}
-                           outerRadius={80}
-                           paddingAngle={5}
-                           dataKey="value"
-                         >
-                            <Cell fill="#10b981" />
-                            <Cell fill="#ef4444" />
-                         </Pie>
-                         <Tooltip />
-                      </RePie>
-                   </ResponsiveContainer>
-                </div>
-             </div>
+              <div className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-100'} border p-6 rounded-[2rem] h-80`}>
+                <h3 className="font-bold mb-6 flex items-center gap-2 text-emerald-500"><PieChart size={20} /> Data Distribution</h3>
+                <ResponsiveContainer width="100%" height="80%">
+                  <RePie>
+                    <Pie
+                      data={[
+                        { name: 'Present', value: subjects.reduce((acc, s) => acc + s.history.filter(h => h.status === 'p').length, 0) },
+                        { name: 'Absent', value: subjects.reduce((acc, s) => acc + s.history.filter(h => h.status === 'a').length, 0) }
+                      ]}
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      <Cell fill="#10b981" />
+                      <Cell fill="#ef4444" />
+                    </Pie>
+                    <Tooltip />
+                  </RePie>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         )}
 
@@ -324,7 +306,7 @@ if (!user) {
                   <h4 className="font-bold">Export Data</h4>
                   <p className="text-sm text-slate-500">Save history to JSON file</p>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     const blob = new Blob([JSON.stringify(subjects)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
@@ -351,20 +333,20 @@ if (!user) {
             <div className="space-y-6">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest mb-2 opacity-50">Subject Name</label>
-                <input 
+                <input
                   type="text"
                   placeholder="e.g. Algorithms"
                   value={newSub.name}
-                  onChange={e => setNewSub({...newSub, name: e.target.value})}
+                  onChange={e => setNewSub({ ...newSub, name: e.target.value })}
                   className={`w-full p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} outline-none focus:ring-2 focus:ring-indigo-500`}
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest mb-2 opacity-50">Target: {newSub.target}%</label>
-                <input 
+                <input
                   type="range" min="50" max="100" step="5"
                   value={newSub.target}
-                  onChange={e => setNewSub({...newSub, target: parseInt(e.target.value)})}
+                  onChange={e => setNewSub({ ...newSub, target: parseInt(e.target.value) })}
                   className="w-full accent-indigo-600"
                 />
               </div>
