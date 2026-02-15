@@ -6,9 +6,10 @@ import {
   TrendingUp, Calendar, Settings, PieChart,
   Sun, Moon, Info, Download, Search, LogOut, AlertTriangle
 } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Pie, Cell,
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, PieChart as RePie, 
+  Pie, Cell 
 } from 'recharts';
 import { calculateSubjectStats } from './utils/attendanceLogic';
 
