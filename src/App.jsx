@@ -106,39 +106,74 @@ const App = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {subjectData.map(s => (
-                <div key={s.id} className="glass-card rounded-[2rem] p-6 relative overflow-hidden flex flex-col min-h-[350px] group border border-white/5 hover:border-indigo-500/40 transition-all duration-300">
-                  <div className="flex justify-between items-start mb-6">
-                    <h3 className="text-2xl font-bold">{s.name}</h3>
-                    <button onClick={async () => { if(window.confirm('Delete?')) await supabase.from('subjects').delete().eq('id', s.id); }} className="text-slate-600 hover:text-red-400"><Trash2 size={20} /></button>
+                <div key={s.id} className="glass-card-perf flex flex-col justify-between min-h-[320px] group">
+                  {/* Top: Header */}
+                  <div className="p-6 flex justify-between items-start">
+                    <h3 className="text-xl font-bold text-white tracking-wide">{s.name}</h3>
+                    <button
+                      onClick={async () => { if (window.confirm('Delete?')) await supabase.from('subjects').delete().eq('id', s.id); }}
+                      className="text-slate-600 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
 
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <span className={`text-6xl font-black ${s.stats.isCritical ? 'text-red-400' : 'text-indigo-400'}`}>{s.stats.percentage}%</span>
-                    <p className="text-[10px] uppercase font-bold tracking-widest mt-2 text-slate-500 font-bold">Attendance</p>
+                  {/* Middle: Stats */}
+                  <div className="flex-1 flex flex-col items-center justify-center -mt-4">
+                    <span className="text-7xl font-black text-gradient-cyan-purple tracking-tighter">
+                      {s.stats.percentage}%
+                    </span>
+
+                    {s.stats.total === 0 ? (
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">No Classes Recorded</p>
+                    ) : (
+                      <div className="flex items-center gap-4 mt-2">
+                        <div className="text-center">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase block">Attended</span>
+                          <span className="text-lg font-bold text-emerald-400">{s.stats.present}</span>
+                        </div>
+                        <div className="h-6 w-[1px] bg-white/10"></div>
+                        <div className="text-center">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase block">Total</span>
+                          <span className="text-lg font-bold text-white">{s.stats.total}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* DASHBOARD ACTIONS */}
-                  <div className="flex justify-center gap-4 py-4 mb-4">
-                    <button onClick={() => markAttendance(s.id, 'p')} className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"><Check size={20}/></button>
-                    <button onClick={() => markAttendance(s.id, 'a')} className="p-3 bg-rose-500/20 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><X size={20}/></button>
-                    <button onClick={() => markAttendance(s.id, 'h')} className="p-3 bg-amber-500/20 text-amber-400 rounded-xl hover:bg-amber-500 hover:text-white transition-all"><SettingsIcon size={20}/></button>
-                  </div>
-
-                  {/* METRICS SPLIT */}
-                  <div className="grid grid-cols-2 border-t border-white/5 bg-black/20 rounded-xl">
-                    <div className="p-3 text-center border-r border-white/5">
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">Attended</p>
-                      <p className="text-xl font-bold text-emerald-400">{s.stats.present}</p>
+                  {/* Bottom: Sub-Panel Actions */}
+                  <div className="sub-panel p-4 flex items-center justify-between gap-4 mt-auto">
+                    <div className="flex gap-2 w-full justify-center">
+                      <button
+                        onClick={() => markAttendance(s.id, 'p')}
+                        className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all active:scale-95"
+                      >
+                        <Check size={20} />
+                      </button>
+                      <button
+                        onClick={() => markAttendance(s.id, 'a')}
+                        className="p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white hover:shadow-[0_0_15px_rgba(244,63,94,0.5)] transition-all active:scale-95"
+                      >
+                        <X size={20} />
+                      </button>
+                      <button
+                        onClick={() => undoLast(s)}
+                        className="p-3 bg-slate-500/10 text-slate-400 rounded-xl hover:bg-slate-600 hover:text-white transition-all active:scale-95"
+                      >
+                        <RotateCcw size={18} />
+                      </button>
                     </div>
-                    <div className="p-3 text-center">
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">Total Held</p>
-                      <p className="text-xl font-bold text-slate-200">{s.stats.total}</p>
-                    </div>
                   </div>
 
-                  <div className="absolute bottom-0 left-0 w-full h-1.5 bg-white/5">
-                    <div className={`h-full transition-all duration-1000 ${s.stats.isCritical ? 'bg-red-500 shadow-[0_0_10px_red]' : 'bg-indigo-500 shadow-[0_0_10px_#6366f1]'}`} style={{ width: `${s.stats.percentage}%` }}></div>
-                  </div>
+                  {/* Progress Bar (Integrated into bottom or just above sub-panel? 
+                      Design asks for 'pinned to the very bottom', but sub-panel is at bottom. 
+                      I'll put it at the very bottom of the card container, effectively bordering the sub-panel or inside it.
+                      Actually, a nice touch is putting it at the TOP of the sub-panel (border-top).
+                   */}
+                  <div
+                    className={`h-[2px] w-full absolute bottom-0 left-0 transition-all duration-500 ${s.stats.isCritical ? 'bg-red-500 shadow-[0_0_10px_red]' : 'bg-cyan-500 shadow-[0_0_10px_cyan]'}`}
+                    style={{ width: `${s.stats.percentage}%` }}
+                  />
                 </div>
               ))}
             </div>
@@ -148,11 +183,11 @@ const App = () => {
         {view === 'calendar' && (
           <div className="flex flex-col lg:flex-row gap-10 animate-in slide-in-from-right duration-500">
             <div className="glass-panel p-8 rounded-[2.5rem] bg-white/5 border border-white/10 h-fit lg:w-1/2">
-              <Calendar 
-                onChange={setSelectedDate} 
-                value={selectedDate} 
+              <Calendar
+                onChange={setSelectedDate}
+                value={selectedDate}
                 className="bg-transparent border-none text-white w-full"
-                tileClassName={({ date }) => date.getDay() === 0 ? 'text-amber-400 font-bold' : null} 
+                tileClassName={({ date }) => date.getDay() === 0 ? 'text-amber-400 font-bold' : null}
               />
             </div>
             <div className="flex-1 space-y-6">
@@ -185,15 +220,15 @@ const App = () => {
           <div className="glass-panel p-10 rounded-[2.5rem] w-full max-w-md bg-[#161b22] border border-white/10 shadow-2xl">
             <h2 className="text-3xl font-black mb-8">New Subject</h2>
             <div className="space-y-6">
-              <input type="text" className="w-full p-4 rounded-xl bg-white/5 border border-white/10 outline-none" placeholder="Subject Name" onChange={e => setNewSub({...newSub, name: e.target.value})} />
-              <input type="number" className="w-full p-4 rounded-xl bg-white/5 border border-white/10 outline-none" placeholder="Target %" onChange={e => setNewSub({...newSub, target: e.target.value})} />
+              <input type="text" className="w-full p-4 rounded-xl bg-white/5 border border-white/10 outline-none" placeholder="Subject Name" onChange={e => setNewSub({ ...newSub, name: e.target.value })} />
+              <input type="number" className="w-full p-4 rounded-xl bg-white/5 border border-white/10 outline-none" placeholder="Target %" onChange={e => setNewSub({ ...newSub, target: e.target.value })} />
               <div className="flex gap-4">
                 <button onClick={() => setIsModalOpen(false)} className="flex-1 p-4 rounded-xl bg-white/5 font-bold">Cancel</button>
                 <button onClick={async () => {
-                   if (!newSub.name) return;
-                   const { data: { user } } = await supabase.auth.getUser();
-                   await supabase.from('subjects').insert([{ name: newSub.name, target_percentage: newSub.target, user_id: user.id }]);
-                   setIsModalOpen(false);
+                  if (!newSub.name) return;
+                  const { data: { user } } = await supabase.auth.getUser();
+                  await supabase.from('subjects').insert([{ name: newSub.name, target_percentage: newSub.target, user_id: user.id }]);
+                  setIsModalOpen(false);
                 }} className="flex-1 p-4 rounded-xl bg-indigo-600 font-bold">Save</button>
               </div>
             </div>
@@ -211,7 +246,7 @@ const NavBtn = ({ icon: Icon, active, onClick }) => (
 );
 
 const LogBtn = ({ active, color, icon: Icon, onClick }) => {
-  const colors = { 
+  const colors = {
     emerald: active ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-emerald-500/10 text-emerald-500',
     rose: active ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]' : 'bg-rose-500/10 text-rose-500',
     amber: active ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]' : 'bg-amber-500/10 text-amber-500'
