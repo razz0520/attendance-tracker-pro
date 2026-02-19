@@ -3,24 +3,24 @@ import 'react-calendar/dist/Calendar.css';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from "./lib/supabaseClient";
 import Auth from './components/Auth';
-import { 
+import {
   Plus, Trash2, Check, X, RotateCcw, TrendingUp, AlertTriangle,
-  Calendar as CalendarIcon, Settings as SettingsIcon, 
-  PieChart as PieChartIcon, Download, Search, LogOut 
+  Calendar as CalendarIcon, Settings as SettingsIcon,
+  PieChart as PieChartIcon, Download, Search, LogOut
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer
 } from 'recharts';
 
 // --- Professional Logic Layer: Centralized Calculation ---
 const calculateStats = (history, target) => {
-  const validLogs = history.filter(h => h.status !== 'holiday'); 
+  const validLogs = history.filter(h => h.status !== 'holiday');
   const present = validLogs.filter(h => h.status === 'p').length;
   const total = validLogs.length;
   const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
   const isCritical = percentage < target;
-  const margin = percentage - target; 
+  const margin = percentage - target;
   return { present, total, percentage, isCritical, margin };
 };
 
@@ -99,13 +99,23 @@ const App = () => {
     }]);
   };
 
+  const undoLast = async (subject) => {
+    if (!subject.history || subject.history.length === 0) return;
+    // History is reversed or sorted? Assuming append-only, last one is the target.
+    // Ideally we should sort by date/created_at to be safe, but for now we take the last in the array.
+    const lastLog = subject.history[subject.history.length - 1];
+    if (lastLog) {
+      await supabase.from('attendance_logs').delete().eq('id', lastLog.id);
+    }
+  };
+
   const deleteSubject = async (id) => {
     if (window.confirm('Remove subject?')) await supabase.from('subjects').delete().eq('id', id);
   };
 
   const downloadCSV = () => {
     const header = "Subject,Present,Total Held,Percentage,Status\n";
-    const rows = subjectData.map(s => 
+    const rows = subjectData.map(s =>
       `${s.name},${s.stats.present},${s.stats.total},${s.stats.percentage}%,${s.stats.isCritical ? 'DANGER' : 'SAFE'}`
     ).join("\n");
     const blob = new Blob([header + rows], { type: 'text/csv' });
@@ -149,28 +159,57 @@ const App = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {subjectData.map(s => (
-                <div key={s.id} className="glass-card rounded-[2rem] p-6 relative overflow-hidden flex flex-col min-h-[320px] group border border-white/5 hover:border-indigo-500/30 transition-all duration-500 hover:-translate-y-2">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-30"></div>
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-2xl font-bold">{s.name}</h3>
-                    <button onClick={() => deleteSubject(s.id)} className="text-slate-600 hover:text-red-400"><Trash2 size={20} /></button>
+                <div key={s.id} className="glass-card-precise rounded-[2.5rem] p-0 flex flex-col min-h-[340px] group">
+                  {/* Header */}
+                  <div className="relative z-10 p-6 pb-2 flex justify-between items-start">
+                    <h3 className="font-bold text-2xl text-white tracking-wide mix-blend-overlay">{s.name}</h3>
+                    <button onClick={() => deleteSubject(s.id)} className="text-slate-500 hover:text-red-400 transition-colors p-2 hover:bg-white/5 rounded-full"><Trash2 size={18} /></button>
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <span className={`text-6xl font-black ${s.stats.isCritical ? 'text-red-400' : 'text-indigo-400'}`}>{s.stats.percentage}%</span>
-                    <p className="text-[10px] uppercase font-bold tracking-widest mt-2 text-slate-500">Target: {s.target}%</p>
-                  </div>
-                  <div className="grid grid-cols-2 border-t border-white/5 bg-black/20 mt-4 rounded-xl">
-                    <div className="p-3 text-center border-r border-white/5">
-                      <p className="text-[10px] text-slate-500 uppercase font-bold">Attended</p>
-                      <p className="text-xl font-bold text-emerald-400">{s.stats.present}</p>
+
+                  {/* Centerpiece: Percentage */}
+                  <div className="relative z-10 flex-1 flex flex-col items-center justify-center -mt-4">
+                    <div className="text-7xl font-black text-gradient-cyan-purple tracking-tighter filter drop-shadow-2xl">
+                      {s.stats.percentage}%
                     </div>
-                    <div className="p-3 text-center">
-                      <p className="text-[10px] text-slate-500 uppercase font-bold">Total Held</p>
-                      <p className="text-xl font-bold">{s.stats.total}</p>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.3em] mt-3 ${s.stats.isCritical ? 'text-red-400' : 'text-slate-400'}`}>
+                      {s.stats.isCritical ? 'Below Target' : 'On Track'}
+                    </p>
+                  </div>
+
+                  {/* Data Split */}
+                  <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center py-4 border-t border-white/5 bg-black/20 backdrop-blur-sm">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Attended</span>
+                      <span className="text-xl font-bold text-emerald-400">{s.stats.present}</span>
+                    </div>
+
+                    <div className="divider-vertical h-8 w-[1px] bg-white/10"></div>
+
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Total Held</span>
+                      <span className="text-xl font-bold text-white">{s.stats.total}</span>
                     </div>
                   </div>
-                  <div className="absolute bottom-0 left-0 w-full h-1.5 bg-white/5">
-                    <div className={`h-full transition-all duration-1000 ${s.stats.isCritical ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${s.stats.percentage}%` }}></div>
+
+                  {/* Actions (Floating) - 5mm Elevation Effect */}
+                  <div className="absolute bottom-[90px] w-full flex justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-8 group-hover:translate-y-0 z-20 pointer-events-none group-hover:pointer-events-auto">
+                    <button onClick={() => markAttendance(s.id, 'p')} className="action-btn-float p-3 rounded-2xl text-emerald-400 hover:text-white">
+                      <Check size={22} strokeWidth={2.5} />
+                    </button>
+                    <button onClick={() => markAttendance(s.id, 'a')} className="action-btn-float p-3 rounded-2xl text-rose-400 hover:text-white">
+                      <X size={22} strokeWidth={2.5} />
+                    </button>
+                    <button onClick={() => undoLast(s)} className="action-btn-float p-3 rounded-2xl text-slate-400 hover:text-white">
+                      <RotateCcw size={20} strokeWidth={2.5} />
+                    </button>
+                  </div>
+
+                  {/* Progress Bar (Pinned Bottom) */}
+                  <div className="relative h-1 w-full bg-slate-900/50">
+                    <div
+                      className={`absolute left-0 top-0 h-full transition-all duration-1000 ease-out progress-bar-neon ${s.stats.isCritical ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-r from-cyan-400 to-purple-500'}`}
+                      style={{ width: `${s.stats.percentage}%` }}
+                    ></div>
                   </div>
                 </div>
               ))}
@@ -242,8 +281,8 @@ const App = () => {
           <div className="glass-panel p-10 rounded-[2.5rem] w-full max-w-md bg-[#161b22] border border-white/10 shadow-2xl">
             <h2 className="text-3xl font-black mb-8">New Subject</h2>
             <div className="space-y-6">
-              <input type="text" className="w-full p-4 rounded-xl bg-white/5 border border-white/10 outline-none" placeholder="Name" onChange={e => setNewSub({...newSub, name: e.target.value})} />
-              <input type="number" className="w-full p-4 rounded-xl bg-white/5 border border-white/10 outline-none" placeholder="Target %" onChange={e => setNewSub({...newSub, target: e.target.value})} />
+              <input type="text" className="w-full p-4 rounded-xl bg-white/5 border border-white/10 outline-none" placeholder="Name" onChange={e => setNewSub({ ...newSub, name: e.target.value })} />
+              <input type="number" className="w-full p-4 rounded-xl bg-white/5 border border-white/10 outline-none" placeholder="Target %" onChange={e => setNewSub({ ...newSub, target: e.target.value })} />
               <div className="flex gap-4">
                 <button onClick={() => setIsModalOpen(false)} className="flex-1 p-4 rounded-xl bg-white/5 font-bold">Cancel</button>
                 <button onClick={async () => {
