@@ -2,9 +2,9 @@
 
 :root {
   --font-outfit: 'Outfit', sans-serif;
-  --color-bg-mesh: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-                   radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-                   radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+  --color-bg-mesh: radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
+    radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
+    radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
   --glass-border: 1px solid rgba(255, 255, 255, 0.1);
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
@@ -14,11 +14,13 @@
 
 body {
   font-family: var(--font-outfit);
-  background-color: #0f172a; /* Slate 900 fallback */
+  background-color: #0f172a;
+  /* Slate 900 fallback */
   background-image: var(--color-bg-mesh);
   background-attachment: fixed;
   background-size: cover;
-  color: #f8fafc; /* Slate 50 */
+  color: #f8fafc;
+  /* Slate 50 */
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -27,15 +29,18 @@ body {
 ::-webkit-scrollbar {
   width: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5); 
+  background: rgba(15, 23, 42, 0.5);
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.5); 
+  background: rgba(99, 102, 241, 0.5);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.8); 
+  background: rgba(99, 102, 241, 0.8);
 }
 
 /* Glassmorphism Utilities */
@@ -48,7 +53,8 @@ body {
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.05); /* Slighty more opacity */
+  background: rgba(255, 255, 255, 0.05);
+  /* Slighty more opacity */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -68,9 +74,63 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
 }
+
 .glass-button-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(99, 102, 241, 0.6);
+}
+
+/* High Fidelity Subject Card */
+.glass-card-high-fidelity {
+  background: rgba(30, 41, 59, 0.4);
+  /* Deep charcoal semi-transparent */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 242, 234, 0.3);
+  /* Subtle cyan border */
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-card-high-fidelity:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 25px rgba(0, 242, 234, 0.15), inset 0 0 10px rgba(0, 242, 234, 0.05);
+  transform: translateY(-8px);
+}
+
+@keyframes gradient-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+    filter: brightness(100%);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+    filter: brightness(130%);
+  }
+
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+    filter: brightness(100%);
+  }
+}
+
+.text-gradient-pulse {
+  background: linear-gradient(135deg, #00f2ea 0%, #b026ff 100%);
+  /* Electric Blue to Soft Purple */
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-pulse 3s infinite ease-in-out;
+}
+
+.progress-bar-glow {
+  box-shadow: 0 0 10px var(--neon-cyan);
 }
 
 /* Calendar Overrides */
@@ -84,8 +144,10 @@ body {
 .react-calendar__navigation button {
   color: white !important;
   font-weight: 700 !important;
-  font-size: 1.25rem !important; /* text-xl */
+  font-size: 1.25rem !important;
+  /* text-xl */
 }
+
 .react-calendar__navigation button:enabled:hover,
 .react-calendar__navigation button:enabled:focus {
   background-color: rgba(255, 255, 255, 0.1) !important;
@@ -135,7 +197,8 @@ body {
   width: 36px;
   height: 36px;
   border: 2px solid var(--neon-cyan);
-  border-radius: 50%; /* Circle ring */
+  border-radius: 50%;
+  /* Circle ring */
   box-shadow: 0 0 15px var(--neon-cyan), inset 0 0 10px var(--neon-cyan);
   z-index: 0;
 }
