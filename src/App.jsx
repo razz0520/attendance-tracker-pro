@@ -391,17 +391,14 @@ const App = () => {
 
 
   const logsForDate = useMemo(() => {
-
+    const isSunday = selectedDate.getDay() === 0;
     return subjects.map(subject => {
-
       const entry = subject.history.find(log => new Date(log.date).toDateString() === selectedDate.toDateString());
-
-      return { id: subject.id, name: subject.name, status: entry ? entry.status : 'not marked' };
-
+      // Default to 'holiday' if it's Sunday and no manual log exists
+      const effectiveStatus = entry ? entry.status : (isSunday ? 'holiday' : 'not marked');
+      return { id: subject.id, name: subject.name, status: effectiveStatus };
     });
-
   }, [subjects, selectedDate]);
-
 
 
   if (isResetting) return <div className="min-h-screen flex items-center justify-center p-6"><ResetPasswordView onComplete={() => setIsResetting(false)} /></div>;
@@ -485,49 +482,53 @@ const App = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
               {filteredSubjects.map(s => (
-
-                <GlassCard key={s.id} className="relative group overflow-hidden">
-
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-cyan-500 to-purple-500 opacity-50 group-hover:opacity-100 transition-opacity"></div>
-
-                  <div className="flex justify-between items-start mb-6">
-
-                    <h3 className="font-bold text-xl text-slate-100 tracking-wide">{s.name}</h3>
-
-                    <button onClick={() => deleteSubject(s.id)} className="text-slate-500 hover:text-red-400 transition-colors p-2 hover:bg-white/5 rounded-lg"><Trash2 size={18} /></button>
-
+                <div key={s.id} className="glass-card-precise rounded-[2.5rem] p-0 flex flex-col min-h-[360px] relative group overflow-visible transition-all duration-500 hover:z-50">
+                  {/* Header */}
+                  <div className="relative z-10 p-6 flex justify-between items-start">
+                    <h3 className="font-bold text-2xl text-white tracking-wide mix-blend-overlay break-words w-4/5">{s.name}</h3>
+                    <button onClick={() => deleteSubject(s.id)} className="text-slate-500 hover:text-red-400 transition-colors p-2 hover:bg-white/5 rounded-full"><Trash2 size={18} /></button>
                   </div>
 
-
-
-                  <div className="flex items-baseline gap-2 mb-2">
-
-                    <span className={`text-5xl font-black ${s.stats?.isCritical ? 'text-red-400 drop-shadow-[0_0_10px_rgba(248,113,113,0.3)]' : 'text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400'}`}>
-
+                  {/* Hero Stats: Anti-Gravity Centerpiece */}
+                  <div className="relative z-10 flex-1 flex flex-col items-center justify-center -mt-6">
+                    <div className="text-7xl font-black text-gradient-cyan-purple tracking-tighter filter drop-shadow-2xl transition-transform duration-500 group-hover:scale-110">
                       {s.stats?.percentage || 0}%
-
-                    </span>
-
-                    <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Current</span>
-
+                    </div>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.3em] mt-4 ${s.stats?.isCritical ? 'text-red-400' : 'text-emerald-400'} opacity-80`}>
+                      {s.stats?.percentage < s.target ? 'Below Target' : 'On Track'}
+                    </p>
                   </div>
 
-                  <p className="text-xs text-slate-400 font-bold mb-6 uppercase tracking-widest">{s.stats?.actionText || "Loading..."}</p>
+                  {/* Split Data Row */}
+                  <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center py-5 border-t border-white/5 bg-black/20 backdrop-blur-md">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Attended</span>
+                      <span className="text-xl font-bold text-white">{s.stats?.present || 0}</span>
+                    </div>
 
+                    <div className="divider-vertical h-8 w-[1px] bg-white/10"></div>
 
-
-                  <div className="grid grid-cols-3 gap-3">
-
-                    <ActionButton color="emerald" icon={Check} onClick={() => markAttendance(s.id, 'p')} />
-
-                    <ActionButton color="rose" icon={X} onClick={() => markAttendance(s.id, 'a')} />
-
-                    <ActionButton color="slate" icon={RotateCcw} onClick={() => undoLast(s)} />
-
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Total Held</span>
+                      <span className="text-xl font-bold text-slate-300">{s.stats?.total || 0}</span>
+                    </div>
                   </div>
 
-                </GlassCard>
+                  {/* Floating Actions (Elevated 5mm) */}
+                  <div className="absolute bottom-[90px] left-0 w-full flex justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-8 group-hover:translate-y-0 z-20 pointer-events-none group-hover:pointer-events-auto">
+                    <button onClick={() => markAttendance(s.id, 'p')} className="action-btn-float p-3 rounded-2xl text-emerald-400 hover:text-white transition-transform active:scale-90"><Check size={22} strokeWidth={2.5} /></button>
+                    <button onClick={() => markAttendance(s.id, 'a')} className="action-btn-float p-3 rounded-2xl text-rose-400 hover:text-white transition-transform active:scale-90"><X size={22} strokeWidth={2.5} /></button>
+                    <button onClick={() => undoLast(s)} className="action-btn-float p-3 rounded-2xl text-slate-400 hover:text-white transition-transform active:scale-90"><RotateCcw size={20} strokeWidth={2.5} /></button>
+                  </div>
 
+                  {/* Neon Progress Bar (Pinned) */}
+                  <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/50">
+                    <div
+                      className={`h-full transition-all duration-1000 ease-out progress-bar-neon ${s.stats?.isCritical ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-r from-cyan-400 to-purple-500'}`}
+                      style={{ width: `${s.stats?.percentage || 0}%` }}
+                    ></div>
+                  </div>
+                </div>
               ))}
 
             </div>
