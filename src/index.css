@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════
+   ANTI-GRAVITY DESIGN SYSTEM
+   Futuristic · Weightless · Mathematically Precise
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Design Tokens ─── */
 :root {
   --font-outfit: 'Outfit', sans-serif;
   --color-bg-mesh: radial-gradient(at 0% 0%, #0f172a 0, transparent 70%),
@@ -7,22 +13,38 @@
     radial-gradient(at 100% 0%, #020617 0, transparent 70%);
   --neon-cyan: #00f2ea;
   --neon-purple: #b026ff;
-  --glass-border: 1px solid rgba(0, 242, 234, 0.3);
+  --glass-bg: rgba(15, 23, 42, 0.4);
+  --glass-bg-card: rgba(30, 41, 59, 0.25);
+  --glass-blur: 25px;
+  --glass-border-subtle: 1px solid rgba(0, 242, 234, 0.15);
+  --glass-border-hover: rgba(0, 242, 234, 0.5);
+  --card-radius: 2.5rem;
+  --nav-z: 100;
+  --transition-spring: cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Global Reset & Body ─── */
+*,
+*::before,
+*::after {
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   font-family: var(--font-outfit);
   background-color: #020617;
-  /* Deepest Navy/Charcoal */
   background-image: var(--color-bg-mesh);
   background-attachment: fixed;
   background-size: cover;
   color: #e2e8f0;
   min-height: 100vh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar */
+/* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -40,79 +62,425 @@ body {
   background: rgba(0, 242, 234, 0.6);
 }
 
-/* Precision Glassmorphism */
+/* ═══════════════════════════════════════════════════════════════
+   GLASSMORPHISM SYSTEM — 25px Backdrop Blur + Neon-Cyan Glow
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Base glass panel (nav, modals) */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
+/* Precision subject card */
 .glass-card-precise {
-  background: rgba(30, 41, 59, 0.25);
-  /* Ultra-thin charcoal glaze */
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(0, 242, 234, 0.15);
-  /* Subtle cyan tint */
+  background: var(--glass-bg-card);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border-subtle);
   box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+  transition: all 0.5s var(--transition-spring);
   position: relative;
-  overflow: hidden;
+  border-radius: var(--card-radius);
+  touch-action: manipulation;
 }
 
+/* Neon-cyan inner glow via pseudo-element */
 .glass-card-precise::before {
   content: '';
   position: absolute;
   inset: 0;
-  box-shadow: inset 0 0 40px rgba(0, 242, 234, 0.03);
-  /* Inner glow */
+  border-radius: inherit;
+  box-shadow: inset 0 0 30px rgba(0, 242, 234, 0.05);
   pointer-events: none;
   z-index: 0;
+  transition: box-shadow 0.5s var(--transition-spring);
 }
 
 .glass-card-precise:hover {
   transform: translateY(-8px) scale(1.01);
-  border-color: rgba(0, 242, 234, 0.5);
-  box-shadow: 0 20px 50px -10px rgba(0, 242, 234, 0.15), inset 0 0 20px rgba(0, 242, 234, 0.1);
+  border-color: var(--glass-border-hover);
+  box-shadow:
+    0 20px 50px -10px rgba(0, 242, 234, 0.15),
+    inset 0 0 20px rgba(0, 242, 234, 0.1);
 }
 
-/* Typography & Effects */
+.glass-card-precise:hover::before {
+  box-shadow: inset 0 0 50px rgba(0, 242, 234, 0.08);
+}
+
+/* Generic glass card (calendar logs, analytics, settings) */
+.glass-card {
+  background: var(--glass-bg-card);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+  border-radius: 2rem;
+  padding: 1.5rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY & GRADIENT EFFECTS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Hero percentage: Cyan → Purple gradient text */
 .text-gradient-cyan-purple {
   background: linear-gradient(135deg, #00f2ea 0%, #a855f7 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 0 2px rgba(0, 242, 234, 0.3));
+  filter: drop-shadow(0 0 8px rgba(0, 242, 234, 0.3));
 }
 
-.divider-vertical {
+/* ═══════════════════════════════════════════════════════════════
+   DATA SPLIT ROW — 10% Opacity Vertical Divider
+   ═══════════════════════════════════════════════════════════════ */
+
+.data-split-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 1.25rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.data-split-divider {
   width: 1px;
-  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.15), transparent);
+  height: 2rem;
+  background: linear-gradient(to bottom,
+      transparent,
+      rgba(255, 255, 255, 0.10),
+      transparent);
 }
 
-.progress-bar-neon {
+.data-split-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.data-split-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(148, 163, 184, 0.7);
+}
+
+.data-split-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.data-split-value--muted {
+  color: #94a3b8;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ACTION SUB-PANEL — High Contrast, Touch-Optimized
+   0ms physical feedback via active-state scaling
+   ═══════════════════════════════════════════════════════════════ */
+
+.action-subpanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 0 0 var(--card-radius) var(--card-radius);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.action-btn-touch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  /* 0ms physical feedback — transform fires instantly on :active */
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  will-change: transform;
+}
+
+.action-btn-touch:active {
+  transform: scale(0.88);
+}
+
+/* Present button */
+.action-btn-touch--present {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.action-btn-touch--present:active {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+}
+
+/* Absent button */
+.action-btn-touch--absent {
+  color: #fb7185;
+  background: rgba(244, 63, 94, 0.08);
+  border-color: rgba(244, 63, 94, 0.2);
+}
+
+.action-btn-touch--absent:active {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: rgba(244, 63, 94, 0.5);
+  box-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
+}
+
+/* Undo button */
+.action-btn-touch--undo {
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.action-btn-touch--undo:active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NEON PROGRESS BAR
+   ═══════════════════════════════════════════════════════════════ */
+
+.progress-bar-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 0 0 var(--card-radius) var(--card-radius);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  transition: width 1s ease-out;
+  border-radius: inherit;
+}
+
+.progress-bar-fill--healthy {
+  background: linear-gradient(90deg, #00f2ea, #a855f7);
   box-shadow: 0 -2px 10px rgba(0, 242, 234, 0.4);
 }
 
-/* Floating Actions */
-.action-btn-float {
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+.progress-bar-fill--critical {
+  background: #ef4444;
+  box-shadow: 0 -2px 10px rgba(239, 68, 68, 0.5);
 }
 
-.action-btn-float:hover {
-  transform: translateY(-5px);
-  background: rgba(30, 41, 59, 0.9);
-  border-color: var(--neon-cyan);
-  box-shadow: 0 12px 30px rgba(0, 242, 234, 0.2);
+/* ═══════════════════════════════════════════════════════════════
+   NAVIGATION — Floating Dock / Sidebar
+   z-index: 100 to maintain hierarchy above blurred card layers
+   ═══════════════════════════════════════════════════════════════ */
+
+.ag-nav {
+  position: fixed;
+  z-index: var(--nav-z);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(0, 242, 234, 0.05);
 }
 
-/* Calendar Overrides */
+/* Mobile: floating bottom dock, horizontally centered */
+.ag-nav {
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
+  justify-content: space-between;
+  border-radius: 9999px;
+  width: auto;
+  max-width: 90vw;
+}
+
+/* Desktop: vertical sidebar, left-anchored */
+@media (min-width: 768px) {
+  .ag-nav {
+    bottom: auto;
+    left: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    flex-direction: column;
+    border-radius: 1.75rem;
+    width: 4.5rem;
+    max-width: none;
+  }
+}
+
+.ag-nav-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.875rem;
+  border-radius: 1rem;
+  color: #64748b;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color 0.2s ease, background 0.2s ease;
+  border: none;
+  background: transparent;
+}
+
+.ag-nav-btn:active {
+  transform: scale(0.9);
+}
+
+.ag-nav-btn--active {
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(0, 242, 234, 0.2), rgba(99, 102, 241, 0.3));
+  box-shadow: 0 0 20px rgba(0, 242, 234, 0.25);
+}
+
+.ag-nav-btn--active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(0, 242, 234, 0.3);
+  animation: nav-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes nav-pulse {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.ag-nav-divider {
+  width: 2rem;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0.25rem 0;
+}
+
+@media (max-width: 767px) {
+  .ag-nav-divider {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE CSS GRID
+   3-column desktop → 2-column tablet → 1-column mobile
+   ═══════════════════════════════════════════════════════════════ */
+
+.ag-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+@media (min-width: 640px) {
+  .ag-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .ag-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT OFFSET — body padding for nav clearance
+   ═══════════════════════════════════════════════════════════════ */
+
+.ag-layout {
+  min-height: 100vh;
+  padding-bottom: 6rem;
+  /* mobile nav clearance */
+  transition: padding 0.5s var(--transition-spring);
+}
+
+@media (min-width: 768px) {
+  .ag-layout {
+    padding-bottom: 0;
+    padding-left: 6.5rem;
+    /* desktop sidebar clearance */
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GLASS BUTTON SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+
+.glass-button-primary {
+  background: linear-gradient(135deg, rgba(0, 242, 234, 0.2), rgba(99, 102, 241, 0.3));
+  border: 1px solid rgba(0, 242, 234, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 242, 234, 0.15);
+  touch-action: manipulation;
+}
+
+.glass-button-primary:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(0, 242, 234, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS BADGE
+   ═══════════════════════════════════════════════════════════════ */
+
+.status-badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  opacity: 0.8;
+}
+
+.status-badge--safe {
+  color: #34d399;
+}
+
+.status-badge--critical {
+  color: #fb7185;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CALENDAR OVERRIDES — Futuristic Theme
+   ═══════════════════════════════════════════════════════════════ */
+
 .react-calendar {
   background: transparent !important;
   border: none !important;
@@ -124,7 +492,6 @@ body {
   color: white !important;
   font-weight: 700 !important;
   font-size: 1.25rem !important;
-  /* text-xl */
 }
 
 .react-calendar__navigation button:enabled:hover,
@@ -177,7 +544,6 @@ body {
   height: 36px;
   border: 2px solid var(--neon-cyan);
   border-radius: 50%;
-  /* Circle ring */
   box-shadow: 0 0 15px var(--neon-cyan), inset 0 0 10px var(--neon-cyan);
   z-index: 0;
 }
@@ -186,4 +552,79 @@ body {
   background: rgba(99, 102, 241, 0.4) !important;
   box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
   color: white !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ENTRANCE ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes ag-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ag-animate-in {
+  animation: ag-fade-up 0.7s var(--transition-spring) both;
+}
+
+/* Stagger children for grid cards */
+.ag-grid>*:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.ag-grid>*:nth-child(2) {
+  animation-delay: 80ms;
+}
+
+.ag-grid>*:nth-child(3) {
+  animation-delay: 160ms;
+}
+
+.ag-grid>*:nth-child(4) {
+  animation-delay: 240ms;
+}
+
+.ag-grid>*:nth-child(5) {
+  animation-delay: 320ms;
+}
+
+.ag-grid>*:nth-child(6) {
+  animation-delay: 400ms;
+}
+
+.ag-grid>*:nth-child(7) {
+  animation-delay: 480ms;
+}
+
+.ag-grid>*:nth-child(8) {
+  animation-delay: 560ms;
+}
+
+.ag-grid>*:nth-child(9) {
+  animation-delay: 640ms;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL OVERLAY
+   ═══════════════════════════════════════════════════════════════ */
+
+.ag-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(2, 6, 23, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: ag-fade-up 0.3s ease both;
 }

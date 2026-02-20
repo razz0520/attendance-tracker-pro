@@ -1,834 +1,555 @@
 // 1. Core Component Imports
-
 import Calendar from 'react-calendar';
-
 import 'react-calendar/dist/Calendar.css';
 
-
-
 // 2. Focused React Hooks
-
 import React, { useState, useEffect, useMemo } from 'react';
-
 import { supabase } from "./lib/supabaseClient";
-
 import Auth from './components/Auth';
 
-
-
 // 3. Tree-Shaken Lucide Icons
-
 import Plus from 'lucide-react/dist/esm/icons/plus';
-
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
-
 import Check from 'lucide-react/dist/esm/icons/check';
-
 import X from 'lucide-react/dist/esm/icons/x';
-
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
-
 import TrendingUp from 'lucide-react/dist/esm/icons/trending-up';
-
 import CalendarIcon from 'lucide-react/dist/esm/icons/calendar';
-
 import SettingsIcon from 'lucide-react/dist/esm/icons/settings';
-
 import PieChartIcon from 'lucide-react/dist/esm/icons/pie-chart';
-
 import Download from 'lucide-react/dist/esm/icons/download';
-
 import Search from 'lucide-react/dist/esm/icons/search';
-
 import LogOut from 'lucide-react/dist/esm/icons/log-out';
 
-
-
 import {
-
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-
   Tooltip, ResponsiveContainer
-
 } from 'recharts';
-
-
 
 import { calculateSubjectStats } from './utils/attendanceLogic';
 
-
-
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-
-
-// Reusable Glass Components
+// ═══════════════════════════════════════════════════════════════
+// ANTI-GRAVITY REUSABLE COMPONENTS
+// ═══════════════════════════════════════════════════════════════
 
 const GlassCard = ({ children, className = "" }) => (
-
-  <div className={`glass-card rounded-[2rem] p-6 ${className}`}>
-
+  <div className={`glass-card ${className}`}>
     {children}
-
   </div>
-
 );
-
-
 
 const GlassButton = ({ children, onClick, className = "", variant = "secondary" }) => (
-
   <button
-
     onClick={onClick}
-
     className={`
-
-      px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all
-
+      px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2
       ${variant === 'primary' ? 'glass-button-primary text-white' : 'glass-panel hover:bg-white/10 text-slate-200'}
-
       ${className}
-
     `}
-
   >
-
     {children}
-
   </button>
-
 );
 
+// ─── Navigation Button ───
+const NavButton = ({ icon: Icon, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`ag-nav-btn ${active ? 'ag-nav-btn--active' : ''}`}
+  >
+    <Icon size={24} strokeWidth={active ? 2.5 : 2} />
+  </button>
+);
 
-
-const ResetPasswordView = ({ onComplete }) => {
-
-  const [newPassword, setNewPassword] = useState('');
-
-  const [loading, setLoading] = useState(false);
-
-
-
-  const handleUpdate = async (e) => {
-
-    e.preventDefault();
-
-    setLoading(true);
-
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-
-    if (error) alert(error.message);
-
-    else {
-
-      alert("Success! Password updated.");
-
-      window.location.hash = "";
-
-      onComplete();
-
-    }
-
-    setLoading(false);
-
-  };
-
-
+// ─── Anti-Gravity Subject Card ───
+const SubjectCard = ({ subject, onMarkAttendance, onUndo, onDelete }) => {
+  const { stats } = subject;
+  const pct = stats?.percentage || 0;
 
   return (
+    <div className="glass-card-precise flex flex-col min-h-[360px] relative group overflow-hidden ag-animate-in">
+      {/* Card Header */}
+      <div className="relative z-10 p-6 pb-2 flex justify-between items-start">
+        <h3 className="font-bold text-xl text-white tracking-wide break-words w-4/5 leading-tight">
+          {subject.name}
+        </h3>
+        <button
+          onClick={() => onDelete(subject.id)}
+          className="action-btn-touch action-btn-touch--undo p-2"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
 
-    <GlassCard className="w-full max-w-md text-white">
+      {/* ── HERO: Attendance Percentage Centerpiece ── */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+        <div className="text-7xl font-black text-gradient-cyan-purple tracking-tighter leading-none">
+          {pct}%
+        </div>
+        <p className={`status-badge mt-4 ${stats?.isCritical ? 'status-badge--critical' : 'status-badge--safe'}`}>
+          {pct < subject.target ? 'Below Target' : 'On Track'}
+        </p>
+        {stats?.actionText && (
+          <p className="text-xs text-slate-500 mt-2 text-center max-w-[200px] leading-relaxed">
+            {stats.actionText}
+          </p>
+        )}
+      </div>
 
-      <h2 className="text-2xl font-black mb-6 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Secure New Password</h2>
+      {/* ── DATA SPLIT ROW ── */}
+      <div className="data-split-row relative z-10">
+        <div className="data-split-metric">
+          <span className="data-split-label">Attended</span>
+          <span className="data-split-value">{stats?.present || 0}</span>
+        </div>
+        <div className="data-split-divider"></div>
+        <div className="data-split-metric">
+          <span className="data-split-label">Total Held</span>
+          <span className="data-split-value data-split-value--muted">{stats?.total || 0}</span>
+        </div>
+      </div>
 
-      <form onSubmit={handleUpdate} className="space-y-4">
+      {/* ── ACTION SUB-PANEL: Always Visible, Touch-Optimized ── */}
+      <div className="action-subpanel relative z-10">
+        <button
+          onClick={() => onMarkAttendance(subject.id, 'p')}
+          className="action-btn-touch action-btn-touch--present"
+          aria-label="Mark present"
+        >
+          <Check size={20} strokeWidth={2.5} />
+        </button>
+        <button
+          onClick={() => onMarkAttendance(subject.id, 'a')}
+          className="action-btn-touch action-btn-touch--absent"
+          aria-label="Mark absent"
+        >
+          <X size={20} strokeWidth={2.5} />
+        </button>
+        <button
+          onClick={() => onUndo(subject)}
+          className="action-btn-touch action-btn-touch--undo"
+          aria-label="Undo last"
+        >
+          <RotateCcw size={18} strokeWidth={2.5} />
+        </button>
+      </div>
 
-        <input
-
-          type="password"
-
-          placeholder="••••••••"
-
-          className="w-full p-4 rounded-xl bg-slate-900/50 border border-slate-700 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-500"
-
-          onChange={(e) => setNewPassword(e.target.value)}
-
-          required
-
-        />
-
-        <GlassButton variant="primary" className="w-full py-4 text-lg">
-
-          {loading ? 'Updating...' : 'Set Password'}
-
-        </GlassButton>
-
-      </form>
-
-    </GlassCard>
-
+      {/* ── NEON PROGRESS BAR ── */}
+      <div className="progress-bar-track">
+        <div
+          className={`progress-bar-fill ${stats?.isCritical ? 'progress-bar-fill--critical' : 'progress-bar-fill--healthy'}`}
+          style={{ width: `${pct}%` }}
+        ></div>
+      </div>
+    </div>
   );
-
 };
 
+// ─── Calendar Log Action Button ───
+const LogActionButton = ({ status, type, icon: IconComponent, onClick }) => {
+  const isActive = status === type || (status === 'holiday' && type === 'holiday');
+  const activeClass = isActive
+    ? type === 'p' ? 'bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+      : type === 'a' ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.5)]'
+        : 'bg-amber-500 text-white shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+    : 'bg-white/5 text-slate-500 hover:bg-white/10';
 
+  return (
+    <button onClick={onClick} className={`p-2 rounded-lg transition-all active:scale-90 ${activeClass}`}>
+      <IconComponent size={16} strokeWidth={isActive ? 2.5 : 2} />
+    </button>
+  );
+};
+
+// ─── Reset Password View ───
+const ResetPasswordView = ({ onComplete }) => {
+  const [newPassword, setNewPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) alert(error.message);
+    else {
+      alert("Success! Password updated.");
+      window.location.hash = "";
+      onComplete();
+    }
+    setLoading(false);
+  };
+
+  return (
+    <GlassCard className="w-full max-w-md text-white">
+      <h2 className="text-2xl font-black mb-6 text-center text-gradient-cyan-purple">Secure New Password</h2>
+      <form onSubmit={handleUpdate} className="space-y-4">
+        <input
+          type="password"
+          placeholder="••••••••"
+          className="w-full p-4 rounded-xl bg-slate-900/50 border border-slate-700 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-500"
+          onChange={(e) => setNewPassword(e.target.value)}
+          required
+        />
+        <GlassButton variant="primary" className="w-full py-4 text-lg">
+          {loading ? 'Updating...' : 'Set Password'}
+        </GlassButton>
+      </form>
+    </GlassCard>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════
 
 const App = () => {
-
   const [subjects, setSubjects] = useState([]);
-
   const [user, setUser] = useState(null);
-
   const [view, setView] = useState('dashboard');
-
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const [searchQuery, setSearchQuery] = useState('');
-
   const [isResetting, setIsResetting] = useState(false);
-
   const [selectedDate, setSelectedDate] = useState(new Date());
-
   const [newSub, setNewSub] = useState({ name: '', target: 75, color: COLORS[0] });
 
-
-
   useEffect(() => {
-
     if (window.location.hash.includes('type=recovery')) setIsResetting(true);
-
     const getSession = async () => {
-
       const { data: { session } } = await supabase.auth.getSession();
-
       setUser(session?.user ?? null);
-
       if (session?.user) fetchSubjects();
-
     };
-
     getSession();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-
       setUser(session?.user ?? null);
-
       if (session?.user) fetchSubjects();
-
       else setSubjects([]);
-
     });
-
     return () => subscription.unsubscribe();
-
   }, []);
 
-
-
   const fetchSubjects = async () => {
-
     const { data, error } = await supabase.from('subjects').select('*, attendance_logs(*)');
-
     if (!error && data) {
-
       const transformedData = data.map(s => {
-
         const history = (s.attendance_logs || []).map(log => ({
-
           id: log.id,
-
           date: new Date(log.date).getTime(),
-
           status: log.status === 'present' ? 'p' : log.status === 'absent' ? 'a' : 'holiday'
-
         }));
-
         const stats = calculateSubjectStats({ ...s, history, target: s.target_percentage });
-
         return { ...s, target: s.target_percentage, history, stats };
-
       });
-
       setSubjects(transformedData);
-
     }
-
   };
-
-
 
   const downloadAttendanceCSV = () => {
-
     let csvContent = "Subject,Target %,Present,Absent,Holidays,Total Conducted,Current %,Status\n";
-
     subjects.forEach(s => {
-
       const stats = s.stats || calculateSubjectStats(s);
-
       const row = [
-
         s.name, `${s.target}%`, stats.present,
-
         s.history.filter(h => h.status === 'a').length,
-
         s.history.filter(h => h.status === 'holiday').length,
-
         stats.total, `${stats.percentage}%`,
-
         stats.isCritical ? "DANGER" : "SAFE"
-
       ].join(",");
-
       csvContent += row + "\n";
-
     });
-
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement("a");
-
     link.href = url;
-
     link.download = `Attendance_Report_${new Date().toLocaleDateString()}.csv`;
-
     link.click();
-
   };
-
-
 
   const addSubject = async () => {
-
     if (!newSub.name.trim()) return;
-
     const { data: { user: currentUser } } = await supabase.auth.getUser();
-
     const { error } = await supabase.from('subjects').insert([{
-
       name: newSub.name, target_percentage: newSub.target, user_id: currentUser.id
-
     }]);
-
     if (!error) { fetchSubjects(); setIsModalOpen(false); setNewSub({ name: '', target: 75, color: COLORS[0] }); }
-
   };
-
-
 
   const markAttendance = async (subjectId, status) => {
-
     const dbStatus = status === 'p' ? 'present' : status === 'a' ? 'absent' : 'holiday';
-
     await supabase.from('attendance_logs').insert([{
-
       subject_id: subjectId, status: dbStatus, date: selectedDate.toISOString()
-
     }]);
-
     fetchSubjects();
-
   };
-
-
 
   const undoLast = async (subject) => {
-
     if (!subject.history || subject.history.length === 0) return;
-
     const lastLogId = subject.history[subject.history.length - 1].id;
-
     const { error } = await supabase.from('attendance_logs').delete().eq('id', lastLogId);
-
     if (!error) fetchSubjects();
-
   };
-
-
 
   const deleteSubject = async (id) => {
-
     if (window.confirm('Remove subject?')) {
-
       await supabase.from('subjects').delete().eq('id', id);
-
       fetchSubjects();
-
     }
-
   };
 
-
-
   const filteredSubjects = useMemo(() => {
-
     return subjects.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
   }, [subjects, searchQuery]);
 
-
-
   const overallStats = useMemo(() => {
-
     let totalP = 0, totalC = 0;
-
     subjects.forEach(s => {
-
       const validLogs = s.history.filter(h => h.status !== 'holiday');
-
       totalP += validLogs.filter(h => h.status === 'p').length;
-
       totalC += validLogs.length;
-
     });
-
     return totalC === 0 ? 0 : Math.round((totalP / totalC) * 100);
-
   }, [subjects]);
-
-
 
   const logsForDate = useMemo(() => {
     const isSunday = selectedDate.getDay() === 0;
     return subjects.map(subject => {
       const entry = subject.history.find(log => new Date(log.date).toDateString() === selectedDate.toDateString());
-      // Default to 'holiday' if it's Sunday and no manual log exists
       const effectiveStatus = entry ? entry.status : (isSunday ? 'holiday' : 'not marked');
       return { id: subject.id, name: subject.name, status: effectiveStatus };
     });
   }, [subjects, selectedDate]);
 
+  // ─── Pre-auth screens ───
+  if (isResetting) return (
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <ResetPasswordView onComplete={() => setIsResetting(false)} />
+    </div>
+  );
 
-  if (isResetting) return <div className="min-h-screen flex items-center justify-center p-6"><ResetPasswordView onComplete={() => setIsResetting(false)} /></div>;
+  if (!user) return (
+    <div className="min-h-screen flex items-center justify-center p-6 flex-col gap-8">
+      <h1 className="text-5xl font-black text-gradient-cyan-purple drop-shadow-lg">
+        Attendance Pro
+      </h1>
+      <Auth />
+    </div>
+  );
 
-  if (!user) return <div className="min-h-screen flex items-center justify-center p-6 flex-col gap-8"><h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 drop-shadow-lg">Attendance Pro</h1><Auth /></div>;
-
-
-
+  // ─── Main Dashboard ───
   return (
-
-    <div className="min-h-screen pb-24 md:pb-0 md:pl-24 transition-all duration-500">
-
-      {/* Floating Navigation */}
-
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-6 md:top-1/2 md:-translate-y-1/2 md:w-20 md:h-auto z-50 flex md:flex-col items-center justify-between gap-2 p-3 glass-panel rounded-full md:rounded-3xl border border-white/10 shadow-2xl">
-
+    <div className="ag-layout">
+      {/* ═══ FLOATING NAVIGATION — z-index: 100 ═══ */}
+      <nav className="ag-nav">
         <NavButton icon={CalendarIcon} active={view === 'dashboard'} onClick={() => setView('dashboard')} />
-
         <NavButton icon={TrendingUp} active={view === 'calendar'} onClick={() => setView('calendar')} />
-
         <NavButton icon={PieChartIcon} active={view === 'analytics'} onClick={() => setView('analytics')} />
-
-        <div className="hidden md:block w-8 h-[1px] bg-white/10 my-2"></div>
-
+        <div className="ag-nav-divider"></div>
         <NavButton icon={SettingsIcon} active={view === 'settings'} onClick={() => setView('settings')} />
-
       </nav>
 
+      <main className="max-w-7xl mx-auto p-6 pt-10">
 
-
-      <main className="max-w-7xl mx-auto p-6 pt-12">
-
+        {/* ═══ DASHBOARD VIEW ═══ */}
         {view === 'dashboard' && (
-
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
-
+          <div className="space-y-10 ag-animate-in">
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-
               <div>
-
-                <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-2">Dashboard</h1>
-
-                <p className="text-slate-400 font-medium text-lg">Overall Attendance: <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 font-bold text-xl">{overallStats}%</span></p>
-
+                <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-2">
+                  Dashboard
+                </h1>
+                <p className="text-slate-400 font-medium text-lg">
+                  Overall Attendance:{' '}
+                  <span className="text-gradient-cyan-purple font-bold text-xl">
+                    {overallStats}%
+                  </span>
+                </p>
               </div>
-
               <div className="flex items-center gap-4">
-
                 <div className="relative group">
-
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-400 transition-colors" size={20} />
-
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-400 transition-colors" size={20} />
                   <input
-
                     type="text"
-
                     placeholder="Search subjects..."
-
                     value={searchQuery}
-
                     onChange={(e) => setSearchQuery(e.target.value)}
-
-                    className="pl-12 pr-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all w-64 backdrop-blur-md"
-
+                    className="pl-12 pr-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all w-64 backdrop-blur-md"
                   />
-
                 </div>
-
                 <GlassButton variant="primary" onClick={() => setIsModalOpen(true)}>
-
                   <Plus size={20} /> <span className="hidden sm:inline">Add</span>
-
                 </GlassButton>
-
               </div>
-
             </div>
 
-
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
+            {/* ═══ ANTI-GRAVITY CARD GRID ═══ */}
+            <div className="ag-grid">
               {filteredSubjects.map(s => (
-                <div key={s.id} className="glass-card-precise rounded-[2.5rem] p-0 flex flex-col min-h-[360px] relative group overflow-visible transition-all duration-500 hover:z-50">
-                  {/* Header */}
-                  <div className="relative z-10 p-6 flex justify-between items-start">
-                    <h3 className="font-bold text-2xl text-white tracking-wide mix-blend-overlay break-words w-4/5">{s.name}</h3>
-                    <button onClick={() => deleteSubject(s.id)} className="text-slate-500 hover:text-red-400 transition-colors p-2 hover:bg-white/5 rounded-full"><Trash2 size={18} /></button>
-                  </div>
-
-                  {/* Hero Stats: Anti-Gravity Centerpiece */}
-                  <div className="relative z-10 flex-1 flex flex-col items-center justify-center -mt-6">
-                    <div className="text-7xl font-black text-gradient-cyan-purple tracking-tighter filter drop-shadow-2xl transition-transform duration-500 group-hover:scale-110">
-                      {s.stats?.percentage || 0}%
-                    </div>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.3em] mt-4 ${s.stats?.isCritical ? 'text-red-400' : 'text-emerald-400'} opacity-80`}>
-                      {s.stats?.percentage < s.target ? 'Below Target' : 'On Track'}
-                    </p>
-                  </div>
-
-                  {/* Split Data Row */}
-                  <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center py-5 border-t border-white/5 bg-black/20 backdrop-blur-md">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Attended</span>
-                      <span className="text-xl font-bold text-white">{s.stats?.present || 0}</span>
-                    </div>
-
-                    <div className="divider-vertical h-8 w-[1px] bg-white/10"></div>
-
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Total Held</span>
-                      <span className="text-xl font-bold text-slate-300">{s.stats?.total || 0}</span>
-                    </div>
-                  </div>
-
-                  {/* Floating Actions (Elevated 5mm) */}
-                  <div className="absolute bottom-[90px] left-0 w-full flex justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-8 group-hover:translate-y-0 z-20 pointer-events-none group-hover:pointer-events-auto">
-                    <button onClick={() => markAttendance(s.id, 'p')} className="action-btn-float p-3 rounded-2xl text-emerald-400 hover:text-white transition-transform active:scale-90"><Check size={22} strokeWidth={2.5} /></button>
-                    <button onClick={() => markAttendance(s.id, 'a')} className="action-btn-float p-3 rounded-2xl text-rose-400 hover:text-white transition-transform active:scale-90"><X size={22} strokeWidth={2.5} /></button>
-                    <button onClick={() => undoLast(s)} className="action-btn-float p-3 rounded-2xl text-slate-400 hover:text-white transition-transform active:scale-90"><RotateCcw size={20} strokeWidth={2.5} /></button>
-                  </div>
-
-                  {/* Neon Progress Bar (Pinned) */}
-                  <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/50">
-                    <div
-                      className={`h-full transition-all duration-1000 ease-out progress-bar-neon ${s.stats?.isCritical ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-r from-cyan-400 to-purple-500'}`}
-                      style={{ width: `${s.stats?.percentage || 0}%` }}
-                    ></div>
-                  </div>
-                </div>
+                <SubjectCard
+                  key={s.id}
+                  subject={s}
+                  onMarkAttendance={markAttendance}
+                  onUndo={undoLast}
+                  onDelete={deleteSubject}
+                />
               ))}
-
             </div>
-
           </div>
-
         )}
 
-
-
+        {/* ═══ CALENDAR VIEW ═══ */}
         {view === 'calendar' && (
-
-          <div className="flex flex-col xl:flex-row gap-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
-
+          <div className="flex flex-col xl:flex-row gap-10 ag-animate-in">
             <div className="glass-panel p-8 rounded-[2rem] h-fit xl:w-1/2 shadow-2xl relative overflow-hidden">
-
-              <div className="absolute top-0 right-0 p-32 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-
+              <div className="absolute top-0 right-0 p-32 bg-cyan-500/10 blur-[100px] rounded-full pointer-events-none"></div>
               <div className="relative z-10">
-
                 <Calendar onChange={setSelectedDate} value={selectedDate} />
-
               </div>
-
             </div>
-
-
 
             <div className="flex-1 space-y-6">
-
               <div className="flex items-center justify-between">
-
-                <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
-
+                <h2 className="text-3xl font-black text-white">
                   Logs for {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-
                 </h2>
-
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest border border-white/10 px-3 py-1 rounded-full">{logsForDate.length} Subjects</div>
-
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest border border-white/10 px-3 py-1 rounded-full">
+                  {logsForDate.length} Subjects
+                </div>
               </div>
-
-
-
               <div className="grid gap-4">
-
                 {logsForDate.map(log => (
-
                   <div key={log.id} className="glass-card p-5 rounded-2xl flex justify-between items-center group hover:bg-white/10 transition-colors">
-
                     <span className="font-bold text-lg text-slate-200">{log.name}</span>
-
-                    <div className="flex gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-
+                    <div className="flex gap-2">
                       <LogActionButton status={log.status} type="p" icon={Check} onClick={() => markAttendance(log.id, 'p')} />
-
                       <LogActionButton status={log.status} type="a" icon={X} onClick={() => markAttendance(log.id, 'a')} />
-
-                      <LogActionButton status={log.status} type="holiday" icon={SettingsIcon} onClick={() => markAttendance(log.id, 'h')} /> {/* Corrected Holiday Icon/Action */}
-
+                      <LogActionButton status={log.status} type="holiday" icon={SettingsIcon} onClick={() => markAttendance(log.id, 'h')} />
                     </div>
-
                   </div>
-
                 ))}
-
               </div>
-
             </div>
-
           </div>
-
         )}
 
-
-
+        {/* ═══ ANALYTICS VIEW ═══ */}
         {view === 'analytics' && (
-
-          <div className="space-y-8 animate-in zoom-in-95 duration-700">
-
-            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Performance Analytics</h2>
-
+          <div className="space-y-8 ag-animate-in">
+            <h2 className="text-3xl font-black text-white">
+              Performance Analytics
+            </h2>
             {subjects.length > 0 ? (
-
               <GlassCard className="h-96 w-full">
-
                 <ResponsiveContainer width="100%" height="100%">
-
                   <BarChart data={subjects.map(s => ({ name: s.name, pct: s.stats?.percentage || 0 }))}>
-
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
-
                     <XAxis dataKey="name" fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
-
                     <YAxis fontSize={12} stroke="#94a3b8" tickLine={false} axisLine={false} />
-
                     <Tooltip
-
                       cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-
                       contentStyle={{ backgroundColor: '#1e293b', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#f8fafc' }}
-
                     />
-
-                    <Bar dataKey="pct" fill="#6366f1" radius={[8, 8, 0, 0]} className="drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-
+                    <Bar dataKey="pct" fill="url(#barGradient)" radius={[8, 8, 0, 0]} />
+                    <defs>
+                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#00f2ea" stopOpacity={0.9} />
+                        <stop offset="100%" stopColor="#a855f7" stopOpacity={0.9} />
+                      </linearGradient>
+                    </defs>
                   </BarChart>
-
                 </ResponsiveContainer>
-
               </GlassCard>
-
             ) : (
-
               <GlassCard className="flex items-center justify-center h-48">
-
                 <p className="text-slate-500 font-medium">Add subjects to view analytics.</p>
-
               </GlassCard>
-
             )}
-
           </div>
-
         )}
 
-
-
+        {/* ═══ SETTINGS VIEW ═══ */}
         {view === 'settings' && (
-
-          <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
-
-            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Account Settings</h2>
-
+          <div className="max-w-2xl mx-auto space-y-8 ag-animate-in">
+            <h2 className="text-3xl font-black text-white">
+              Account Settings
+            </h2>
             <GlassCard>
-
               <div className="p-6 border-b border-white/5 flex items-center justify-between">
-
-                <div><h4 className="font-bold text-lg text-white">Session</h4><p className="text-sm text-slate-400">{user?.email}</p></div>
-
-                <button onClick={async () => await supabase.auth.signOut()} className="p-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"><LogOut size={20} /></button>
-
+                <div>
+                  <h4 className="font-bold text-lg text-white">Session</h4>
+                  <p className="text-sm text-slate-400">{user?.email}</p>
+                </div>
+                <button
+                  onClick={async () => await supabase.auth.signOut()}
+                  className="action-btn-touch action-btn-touch--absent p-3"
+                  aria-label="Sign out"
+                >
+                  <LogOut size={20} />
+                </button>
               </div>
-
               <div className="p-6 flex items-center justify-between">
-
-                <div><h4 className="font-bold text-lg text-white">Export Data</h4><p className="text-sm text-slate-400">Download your attendance report (.csv)</p></div>
-
+                <div>
+                  <h4 className="font-bold text-lg text-white">Export Data</h4>
+                  <p className="text-sm text-slate-400">Download your attendance report (.csv)</p>
+                </div>
                 <GlassButton onClick={downloadAttendanceCSV} variant="primary">
-
                   <Download size={20} /> CSV
-
                 </GlassButton>
-
               </div>
-
             </GlassCard>
-
           </div>
-
         )}
 
       </main>
 
-
-
+      {/* ═══ CREATE SUBJECT MODAL ═══ */}
       {isModalOpen && (
-
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in zoom-in-95">
-
-          <GlassCard className="w-full max-w-md !bg-[#0f172a] !border-slate-800">
-
+        <div className="ag-modal-overlay">
+          <GlassCard className="w-full max-w-md !bg-[#0f172a]/90 !border-slate-800">
             <h3 className="text-2xl font-black mb-6 text-white">Create Subject</h3>
-
             <div className="space-y-4">
-
               <div className="space-y-2">
-
                 <label className="text-xs font-bold text-slate-500 uppercase">Subject Name</label>
-
-                <input type="text" placeholder="e.g. Data Structures" value={newSub.name} onChange={e => setNewSub({ ...newSub, name: e.target.value })} className="w-full p-4 rounded-xl bg-slate-800/50 border border-slate-700 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-
+                <input
+                  type="text"
+                  placeholder="e.g. Data Structures"
+                  value={newSub.name}
+                  onChange={e => setNewSub({ ...newSub, name: e.target.value })}
+                  className="w-full p-4 rounded-xl bg-slate-800/50 border border-slate-700 text-white outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+                />
               </div>
-
               <div className="space-y-2">
-
                 <label className="text-xs font-bold text-slate-500 uppercase">Target Percentage (%)</label>
-
-                <input type="number" placeholder="75" value={newSub.target} onChange={e => setNewSub({ ...newSub, target: e.target.value })} className="w-full p-4 rounded-xl bg-slate-800/50 border border-slate-700 text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-
+                <input
+                  type="number"
+                  placeholder="75"
+                  value={newSub.target}
+                  onChange={e => setNewSub({ ...newSub, target: e.target.value })}
+                  className="w-full p-4 rounded-xl bg-slate-800/50 border border-slate-700 text-white outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+                />
               </div>
-
               <div className="flex gap-4 pt-4">
-
-                <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-xl bg-slate-800 text-white font-bold hover:bg-slate-700 transition-colors">Cancel</button>
-
-                <button onClick={addSubject} className="flex-1 py-4 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 shadow-lg shadow-indigo-500/50 transition-all">Save Subject</button>
-
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 py-4 rounded-xl bg-slate-800 text-white font-bold active:scale-95 transition-transform"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addSubject}
+                  className="flex-1 py-4 rounded-xl glass-button-primary text-white font-bold active:scale-95 transition-transform"
+                >
+                  Save Subject
+                </button>
               </div>
-
             </div>
-
           </GlassCard>
-
         </div>
-
       )}
-
     </div>
-
   );
-
 };
-
-
-
-// Sub-components for cleanliness
-
-const NavButton = ({ icon: Icon, active, onClick }) => (
-
-  <button
-
-    onClick={onClick}
-
-    className={`
-
-      p-3.5 rounded-2xl transition-all duration-300 relative group
-
-      ${active ? 'bg-indigo-600 text-white shadow-[0_0_20px_rgba(99,102,241,0.5)]' : 'text-slate-400 hover:text-white hover:bg-white/5'}
-
-    `}
-
-  >
-
-    <Icon size={24} strokeWidth={active ? 2.5 : 2} />
-
-    {active && <span className="absolute inset-0 rounded-2xl ring-2 ring-indigo-400/50 animate-pulse"></span>}
-
-  </button>
-
-);
-
-
-
-const ActionButton = ({ color, icon: Icon, onClick }) => {
-
-  const styles = {
-
-    emerald: "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:shadow-[0_0_15px_rgba(16,185,129,0.5)]",
-
-    rose: "bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white hover:shadow-[0_0_15px_rgba(244,63,94,0.5)]",
-
-    slate: "bg-white/5 text-slate-400 hover:bg-white/20 hover:text-white"
-
-  };
-
-
-
-  return (
-
-    <button onClick={onClick} className={`p-3 rounded-xl transition-all duration-300 flex items-center justify-center ${styles[color]}`}>
-
-      <Icon size={22} strokeWidth={2.5} />
-
-    </button>
-
-  );
-
-};
-
-
-
-const LogActionButton = ({ status, type, icon: IconComponent, onClick }) => {
-
-  const isActive = status === type || (status === 'holiday' && type === 'holiday');
-
-  const activeClass = isActive
-
-    ? type === 'p' ? 'bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]'
-
-      : type === 'a' ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.5)]'
-
-        : 'bg-amber-500 text-white shadow-[0_0_10px_rgba(245,158,11,0.5)]'
-
-    : 'bg-white/5 text-slate-500 hover:bg-white/10';
-
-
-
-  return (
-
-    <button onClick={onClick} className={`p-2 rounded-lg transition-all ${activeClass}`}>
-
-      <IconComponent size={16} strokeWidth={isActive ? 2.5 : 2} />
-
-    </button>
-
-  );
-
-};
-
-
 
 export default App;
