@@ -3,7 +3,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 
 // 2. Focused React Hooks
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { supabase } from "./lib/supabaseClient";
 import Auth from './components/Auth';
 
@@ -20,6 +20,7 @@ import PieChartIcon from 'lucide-react/dist/esm/icons/pie-chart';
 import Download from 'lucide-react/dist/esm/icons/download';
 import Search from 'lucide-react/dist/esm/icons/search';
 import LogOut from 'lucide-react/dist/esm/icons/log-out';
+import Sun from 'lucide-react/dist/esm/icons/sun';
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -31,16 +32,17 @@ import { calculateSubjectStats } from './utils/attendanceLogic';
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 // ═══════════════════════════════════════════════════════════════
-// ANTI-GRAVITY REUSABLE COMPONENTS
+// MEMOIZED ANTI-GRAVITY COMPONENTS — O(1) Render Performance
 // ═══════════════════════════════════════════════════════════════
 
-const GlassCard = ({ children, className = "" }) => (
+const GlassCard = memo(({ children, className = "" }) => (
   <div className={`glass-card ${className}`}>
     {children}
   </div>
-);
+));
+GlassCard.displayName = 'GlassCard';
 
-const GlassButton = ({ children, onClick, className = "", variant = "secondary" }) => (
+const GlassButton = memo(({ children, onClick, className = "", variant = "secondary" }) => (
   <button
     onClick={onClick}
     className={`
@@ -51,20 +53,22 @@ const GlassButton = ({ children, onClick, className = "", variant = "secondary" 
   >
     {children}
   </button>
-);
+));
+GlassButton.displayName = 'GlassButton';
 
-// ─── Navigation Button ───
-const NavButton = ({ icon: Icon, active, onClick }) => (
+// ─── Memoized Navigation Button ───
+const NavButton = memo(({ icon: Icon, active, onClick }) => (
   <button
     onClick={onClick}
     className={`ag-nav-btn ${active ? 'ag-nav-btn--active' : ''}`}
   >
     <Icon size={24} strokeWidth={active ? 2.5 : 2} />
   </button>
-);
+));
+NavButton.displayName = 'NavButton';
 
-// ─── Anti-Gravity Subject Card ───
-const SubjectCard = ({ subject, onMarkAttendance, onUndo, onDelete }) => {
+// ─── Memoized Anti-Gravity Subject Card ───
+const SubjectCard = memo(({ subject, onMarkAttendance, onUndo, onDelete }) => {
   const { stats } = subject;
   const pct = stats?.percentage || 0;
 
@@ -145,10 +149,11 @@ const SubjectCard = ({ subject, onMarkAttendance, onUndo, onDelete }) => {
       </div>
     </div>
   );
-};
+});
+SubjectCard.displayName = 'SubjectCard';
 
-// ─── Calendar Log Action Button ───
-const LogActionButton = ({ status, type, icon: IconComponent, onClick }) => {
+// ─── Memoized Calendar Log Action Button ───
+const LogActionButton = memo(({ status, type, icon: IconComponent, onClick }) => {
   const isActive = status === type || (status === 'holiday' && type === 'holiday');
   const activeClass = isActive
     ? type === 'p' ? 'bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]'
@@ -161,10 +166,49 @@ const LogActionButton = ({ status, type, icon: IconComponent, onClick }) => {
       <IconComponent size={16} strokeWidth={isActive ? 2.5 : 2} />
     </button>
   );
-};
+});
+LogActionButton.displayName = 'LogActionButton';
+
+// ─── Memoized Calendar Log Row with Optimistic Color State ───
+const LogRow = memo(({ log, onMarkAttendance }) => {
+  // Status-based color mapping for instant visual feedback
+  const statusStyles = {
+    p: 'log-row--present',
+    a: 'log-row--absent',
+    holiday: 'log-row--holiday',
+    'not marked': ''
+  };
+  const statusLabels = {
+    p: 'Present',
+    a: 'Absent',
+    holiday: 'Holiday',
+    'not marked': null
+  };
+  const statusLabel = statusLabels[log.status];
+
+  return (
+    <div className={`glass-card log-row p-5 rounded-2xl flex justify-between items-center ${statusStyles[log.status] || ''}`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="font-bold text-lg text-slate-200 truncate">{log.name}</span>
+        {statusLabel && (
+          <span className={`log-status-pill log-status-pill--${log.status === 'p' ? 'present' : log.status === 'a' ? 'absent' : 'holiday'}`}>
+            {log.isSundayAuto && log.status === 'holiday' && <Sun size={10} className="inline mr-1" />}
+            {statusLabel}
+          </span>
+        )}
+      </div>
+      <div className="flex gap-2 shrink-0">
+        <LogActionButton status={log.status} type="p" icon={Check} onClick={() => onMarkAttendance(log.id, 'p')} />
+        <LogActionButton status={log.status} type="a" icon={X} onClick={() => onMarkAttendance(log.id, 'a')} />
+        <LogActionButton status={log.status} type="holiday" icon={SettingsIcon} onClick={() => onMarkAttendance(log.id, 'h')} />
+      </div>
+    </div>
+  );
+});
+LogRow.displayName = 'LogRow';
 
 // ─── Reset Password View ───
-const ResetPasswordView = ({ onComplete }) => {
+const ResetPasswordView = memo(({ onComplete }) => {
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -198,10 +242,11 @@ const ResetPasswordView = ({ onComplete }) => {
       </form>
     </GlassCard>
   );
-};
+});
+ResetPasswordView.displayName = 'ResetPasswordView';
 
 // ═══════════════════════════════════════════════════════════════
-// MAIN APP
+// MAIN APP — Optimistic State Mirroring Architecture
 // ═══════════════════════════════════════════════════════════════
 
 const App = () => {
@@ -230,7 +275,7 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     const { data, error } = await supabase.from('subjects').select('*, attendance_logs(*)');
     if (!error && data) {
       const transformedData = data.map(s => {
@@ -244,9 +289,9 @@ const App = () => {
       });
       setSubjects(transformedData);
     }
-  };
+  }, []);
 
-  const downloadAttendanceCSV = () => {
+  const downloadAttendanceCSV = useCallback(() => {
     let csvContent = "Subject,Target %,Present,Absent,Holidays,Total Conducted,Current %,Status\n";
     subjects.forEach(s => {
       const stats = s.stats || calculateSubjectStats(s);
@@ -265,39 +310,101 @@ const App = () => {
     link.href = url;
     link.download = `Attendance_Report_${new Date().toLocaleDateString()}.csv`;
     link.click();
-  };
+  }, [subjects]);
 
-  const addSubject = async () => {
+  const addSubject = useCallback(async () => {
     if (!newSub.name.trim()) return;
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     const { error } = await supabase.from('subjects').insert([{
       name: newSub.name, target_percentage: newSub.target, user_id: currentUser.id
     }]);
     if (!error) { fetchSubjects(); setIsModalOpen(false); setNewSub({ name: '', target: 75, color: COLORS[0] }); }
-  };
+  }, [newSub, fetchSubjects]);
 
-  const markAttendance = async (subjectId, status) => {
+  // ─────────────────────────────────────────────────────────
+  // OPTIMISTIC STATE MIRRORING — markAttendance
+  // State is updated INSTANTLY in the UI → Supabase syncs in background
+  // On error: state rolls back to previous snapshot
+  // ─────────────────────────────────────────────────────────
+  const markAttendance = useCallback(async (subjectId, status) => {
     const dbStatus = status === 'p' ? 'present' : status === 'a' ? 'absent' : 'holiday';
-    await supabase.from('attendance_logs').insert([{
+    const optimisticStatus = status === 'p' ? 'p' : status === 'a' ? 'a' : 'holiday';
+
+    // 1. Snapshot current state for rollback
+    const previousSubjects = subjects;
+
+    // 2. OPTIMISTIC: Apply change instantly to local state
+    setSubjects(prev => prev.map(s => {
+      if (s.id !== subjectId) return s;
+      const newLog = {
+        id: `optimistic-${Date.now()}`,
+        date: selectedDate.getTime(),
+        status: optimisticStatus
+      };
+      const updatedHistory = [...s.history, newLog];
+      const updatedStats = calculateSubjectStats({ ...s, history: updatedHistory, target: s.target });
+      return { ...s, history: updatedHistory, stats: updatedStats };
+    }));
+
+    // 3. ASYNC: Persist to Supabase
+    const { error } = await supabase.from('attendance_logs').insert([{
       subject_id: subjectId, status: dbStatus, date: selectedDate.toISOString()
     }]);
-    fetchSubjects();
-  };
 
-  const undoLast = async (subject) => {
-    if (!subject.history || subject.history.length === 0) return;
-    const lastLogId = subject.history[subject.history.length - 1].id;
-    const { error } = await supabase.from('attendance_logs').delete().eq('id', lastLogId);
-    if (!error) fetchSubjects();
-  };
-
-  const deleteSubject = async (id) => {
-    if (window.confirm('Remove subject?')) {
-      await supabase.from('subjects').delete().eq('id', id);
+    // 4. RECONCILE: Fetch real data (replaces optimistic IDs with real ones)
+    //    On error: roll back to previous snapshot
+    if (error) {
+      setSubjects(previousSubjects);
+    } else {
       fetchSubjects();
     }
-  };
+  }, [subjects, selectedDate, fetchSubjects]);
 
+  // ─────────────────────────────────────────────────────────
+  // OPTIMISTIC STATE MIRRORING — undoLast
+  // ─────────────────────────────────────────────────────────
+  const undoLast = useCallback(async (subject) => {
+    if (!subject.history || subject.history.length === 0) return;
+    const lastLog = subject.history[subject.history.length - 1];
+
+    // 1. Snapshot for rollback
+    const previousSubjects = subjects;
+
+    // 2. OPTIMISTIC: Remove last entry instantly
+    setSubjects(prev => prev.map(s => {
+      if (s.id !== subject.id) return s;
+      const updatedHistory = s.history.slice(0, -1);
+      const updatedStats = calculateSubjectStats({ ...s, history: updatedHistory, target: s.target });
+      return { ...s, history: updatedHistory, stats: updatedStats };
+    }));
+
+    // 3. ASYNC: Delete from Supabase
+    const { error } = await supabase.from('attendance_logs').delete().eq('id', lastLog.id);
+
+    // 4. RECONCILE or ROLLBACK
+    if (error) {
+      setSubjects(previousSubjects);
+    } else {
+      fetchSubjects();
+    }
+  }, [subjects, fetchSubjects]);
+
+  const deleteSubject = useCallback(async (id) => {
+    if (!window.confirm('Remove subject?')) return;
+
+    // Optimistic removal
+    const previousSubjects = subjects;
+    setSubjects(prev => prev.filter(s => s.id !== id));
+
+    const { error } = await supabase.from('subjects').delete().eq('id', id);
+    if (error) {
+      setSubjects(previousSubjects);
+    } else {
+      fetchSubjects();
+    }
+  }, [subjects, fetchSubjects]);
+
+  // ─── Memoized derived state ───
   const filteredSubjects = useMemo(() => {
     return subjects.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [subjects, searchQuery]);
@@ -312,14 +419,30 @@ const App = () => {
     return totalC === 0 ? 0 : Math.round((totalP / totalC) * 100);
   }, [subjects]);
 
+  // ─── Calendar logs with automated Sunday detection ───
   const logsForDate = useMemo(() => {
     const isSunday = selectedDate.getDay() === 0;
     return subjects.map(subject => {
       const entry = subject.history.find(log => new Date(log.date).toDateString() === selectedDate.toDateString());
+      const hasManualLog = !!entry;
+      // Sunday auto-detection: default to 'holiday' if no manual log
       const effectiveStatus = entry ? entry.status : (isSunday ? 'holiday' : 'not marked');
-      return { id: subject.id, name: subject.name, status: effectiveStatus };
+      return {
+        id: subject.id,
+        name: subject.name,
+        status: effectiveStatus,
+        isSundayAuto: isSunday && !hasManualLog  // Flag for UI (amber + sun icon)
+      };
     });
   }, [subjects, selectedDate]);
+
+  // ─── Stable callback refs for navigation ───
+  const setViewDashboard = useCallback(() => setView('dashboard'), []);
+  const setViewCalendar = useCallback(() => setView('calendar'), []);
+  const setViewAnalytics = useCallback(() => setView('analytics'), []);
+  const setViewSettings = useCallback(() => setView('settings'), []);
+  const openModal = useCallback(() => setIsModalOpen(true), []);
+  const closeModal = useCallback(() => setIsModalOpen(false), []);
 
   // ─── Pre-auth screens ───
   if (isResetting) return (
@@ -342,11 +465,11 @@ const App = () => {
     <div className="ag-layout">
       {/* ═══ FLOATING NAVIGATION — z-index: 100 ═══ */}
       <nav className="ag-nav">
-        <NavButton icon={CalendarIcon} active={view === 'dashboard'} onClick={() => setView('dashboard')} />
-        <NavButton icon={TrendingUp} active={view === 'calendar'} onClick={() => setView('calendar')} />
-        <NavButton icon={PieChartIcon} active={view === 'analytics'} onClick={() => setView('analytics')} />
+        <NavButton icon={CalendarIcon} active={view === 'dashboard'} onClick={setViewDashboard} />
+        <NavButton icon={TrendingUp} active={view === 'calendar'} onClick={setViewCalendar} />
+        <NavButton icon={PieChartIcon} active={view === 'analytics'} onClick={setViewAnalytics} />
         <div className="ag-nav-divider"></div>
-        <NavButton icon={SettingsIcon} active={view === 'settings'} onClick={() => setView('settings')} />
+        <NavButton icon={SettingsIcon} active={view === 'settings'} onClick={setViewSettings} />
       </nav>
 
       <main className="max-w-7xl mx-auto p-6 pt-10">
@@ -378,7 +501,7 @@ const App = () => {
                     className="pl-12 pr-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all w-64 backdrop-blur-md"
                   />
                 </div>
-                <GlassButton variant="primary" onClick={() => setIsModalOpen(true)}>
+                <GlassButton variant="primary" onClick={openModal}>
                   <Plus size={20} /> <span className="hidden sm:inline">Add</span>
                 </GlassButton>
               </div>
@@ -399,7 +522,7 @@ const App = () => {
           </div>
         )}
 
-        {/* ═══ CALENDAR VIEW ═══ */}
+        {/* ═══ CALENDAR VIEW — Optimistic State Mirroring ═══ */}
         {view === 'calendar' && (
           <div className="flex flex-col xl:flex-row gap-10 ag-animate-in">
             <div className="glass-panel p-8 rounded-[2rem] h-fit xl:w-1/2 shadow-2xl relative overflow-hidden">
@@ -418,16 +541,22 @@ const App = () => {
                   {logsForDate.length} Subjects
                 </div>
               </div>
+
+              {/* Sunday auto-detection banner */}
+              {selectedDate.getDay() === 0 && (
+                <div className="log-sunday-banner">
+                  <Sun size={14} />
+                  <span>Sunday — unmarked subjects default to <strong>Holiday</strong></span>
+                </div>
+              )}
+
               <div className="grid gap-4">
                 {logsForDate.map(log => (
-                  <div key={log.id} className="glass-card p-5 rounded-2xl flex justify-between items-center group hover:bg-white/10 transition-colors">
-                    <span className="font-bold text-lg text-slate-200">{log.name}</span>
-                    <div className="flex gap-2">
-                      <LogActionButton status={log.status} type="p" icon={Check} onClick={() => markAttendance(log.id, 'p')} />
-                      <LogActionButton status={log.status} type="a" icon={X} onClick={() => markAttendance(log.id, 'a')} />
-                      <LogActionButton status={log.status} type="holiday" icon={SettingsIcon} onClick={() => markAttendance(log.id, 'h')} />
-                    </div>
-                  </div>
+                  <LogRow
+                    key={log.id}
+                    log={log}
+                    onMarkAttendance={markAttendance}
+                  />
                 ))}
               </div>
             </div>
@@ -532,7 +661,7 @@ const App = () => {
               </div>
               <div className="flex gap-4 pt-4">
                 <button
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                   className="flex-1 py-4 rounded-xl bg-slate-800 text-white font-bold active:scale-95 transition-transform"
                 >
                   Cancel

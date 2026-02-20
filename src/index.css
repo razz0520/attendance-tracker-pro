@@ -628,3 +628,84 @@ body {
   -webkit-backdrop-filter: blur(12px);
   animation: ag-fade-up 0.3s ease both;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LOG ROW — Optimistic State Mirroring Color System
+   Instantaneous color transitions on user interaction
+   ═══════════════════════════════════════════════════════════════ */
+
+.log-row {
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Present — Emerald #10b981 */
+.log-row--present {
+  background: rgba(16, 185, 129, 0.08) !important;
+  border-color: rgba(16, 185, 129, 0.2);
+  box-shadow: inset 0 0 20px rgba(16, 185, 129, 0.05);
+}
+
+/* Absent — Rose #ef4444 */
+.log-row--absent {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.2);
+  box-shadow: inset 0 0 20px rgba(239, 68, 68, 0.05);
+}
+
+/* Holiday — Amber #f59e0b */
+.log-row--holiday {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.2);
+  box-shadow: inset 0 0 20px rgba(245, 158, 11, 0.05);
+}
+
+/* ─── Status Pills ─── */
+.log-status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.log-status-pill--present {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.log-status-pill--absent {
+  color: #fb7185;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.log-status-pill--holiday {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* ─── Sunday Auto-Detection Banner ─── */
+.log-sunday-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+.log-sunday-banner strong {
+  font-weight: 700;
+  color: #f59e0b;
+}
