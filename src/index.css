@@ -424,21 +424,12 @@ body {
 
 /* ═══════════════════════════════════════════════════════════════
    LAYOUT OFFSET — body padding for nav clearance
+   (padding values overridden at bottom of file by Area 12 fix)
    ═══════════════════════════════════════════════════════════════ */
 
 .ag-layout {
   min-height: 100vh;
-  padding-bottom: 6rem;
-  /* mobile nav clearance */
   transition: padding 0.5s var(--transition-spring);
-}
-
-@media (min-width: 768px) {
-  .ag-layout {
-    padding-bottom: 0;
-    padding-left: 6.5rem;
-    /* desktop sidebar clearance */
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -708,4 +699,338 @@ body {
 .log-sunday-banner strong {
   font-weight: 700;
   color: #f59e0b;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST NOTIFICATIONS — Area 2: Replace alert() with toast UI
+   ═══════════════════════════════════════════════════════════════ */
+
+.toast-container {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  pointer-events: none;
+  max-width: 22rem;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid transparent;
+  pointer-events: all;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  animation: toast-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(2rem); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.toast--success {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.toast--error {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fb7185;
+}
+
+.toast--info {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  flex: 1;
+}
+
+.toast-dismiss {
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.toast-dismiss:hover {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SKELETON LOADING — Area 1: Loading states
+   ═══════════════════════════════════════════════════════════════ */
+
+.skeleton-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.1) 50%,
+    rgba(255,255,255,0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CALENDAR TILE COLORS — Fix #4: Color-coded attendance tiles
+   ═══════════════════════════════════════════════════════════════ */
+
+/* All present — emerald dot indicator */
+.react-calendar__tile.tile--all-present {
+  position: relative;
+}
+
+.react-calendar__tile.tile--all-present::before {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.8);
+}
+
+.react-calendar__tile.tile--all-present:not(.react-calendar__tile--active) {
+  background: rgba(16, 185, 129, 0.12) !important;
+}
+
+/* All absent — rose dot indicator */
+.react-calendar__tile.tile--all-absent {
+  position: relative;
+}
+
+.react-calendar__tile.tile--all-absent::before {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.8);
+}
+
+.react-calendar__tile.tile--all-absent:not(.react-calendar__tile--active) {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Holiday — amber dot indicator */
+.react-calendar__tile.tile--holiday {
+  position: relative;
+}
+
+.react-calendar__tile.tile--holiday::before {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
+}
+
+.react-calendar__tile.tile--holiday:not(.react-calendar__tile--active) {
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+/* Mixed — indigo dot indicator */
+.react-calendar__tile.tile--mixed {
+  position: relative;
+}
+
+.react-calendar__tile.tile--mixed::before {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6366f1;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.8);
+}
+
+.react-calendar__tile.tile--mixed:not(.react-calendar__tile--active) {
+  background: rgba(99, 102, 241, 0.08) !important;
+}
+
+/* ─── Calendar Legend ─── */
+.calendar-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.275rem 0.625rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.calendar-legend::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.calendar-legend--present {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+}
+.calendar-legend--present::before { background: #10b981; box-shadow: 0 0 5px rgba(16,185,129,0.7); }
+
+.calendar-legend--absent {
+  color: #fb7185;
+  background: rgba(239, 68, 68, 0.1);
+}
+.calendar-legend--absent::before { background: #ef4444; box-shadow: 0 0 5px rgba(239,68,68,0.7); }
+
+.calendar-legend--holiday {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+}
+.calendar-legend--holiday::before { background: #f59e0b; box-shadow: 0 0 5px rgba(245,158,11,0.7); }
+
+.calendar-legend--mixed {
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.1);
+}
+.calendar-legend--mixed::before { background: #6366f1; box-shadow: 0 0 5px rgba(99,102,241,0.7); }
+
+/* ═══════════════════════════════════════════════════════════════
+   BULK ACTION BUTTONS — Area 4: Mark All
+   ═══════════════════════════════════════════════════════════════ */
+
+.bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.875rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.bulk-btn:active {
+  transform: scale(0.95);
+}
+
+.bulk-btn--present {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+.bulk-btn--present:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.bulk-btn--absent {
+  color: #fb7185;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.bulk-btn--absent:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.bulk-btn--holiday {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+.bulk-btn--holiday:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AREA 12: Mobile bottom padding fix — scroll sentinel
+   ═══════════════════════════════════════════════════════════════ */
+
+.ag-layout {
+  padding-bottom: 7.5rem; /* increased from 6rem to prevent content hidden behind nav */
+}
+
+@media (min-width: 768px) {
+  .ag-layout {
+    padding-bottom: 2rem;
+    padding-left: 6.5rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET BUTTON — Dashboard card single action
+   ═══════════════════════════════════════════════════════════════ */
+
+.reset-btn {
+  padding: 0.625rem 1rem;
+  border-radius: 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.2s ease;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.reset-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fb7185;
+}
+
+.reset-btn:active {
+  transform: scale(0.96);
 }

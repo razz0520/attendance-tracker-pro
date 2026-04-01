@@ -12,12 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
     "@tailwindcss/postcss": "^4.1.18",
-    "date-fns": "^4.1.0",
-    "framer-motion": "^12.33.0",
-    "install": "^0.13.0",
     "lucide-react": "^0.563.0",
-    "npm": "^11.10.0",
-    "or": "^0.2.0",
     "react": "^19.2.0",
     "react-calendar": "^6.0.0",
     "react-dom": "^19.2.0",
