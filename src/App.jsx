@@ -132,13 +132,14 @@ const NavButton = memo(({ icon: Icon, active, onClick }) => (
 NavButton.displayName = 'NavButton';
 
 // ─── Memoized Anti-Gravity Subject Card ───
-const SubjectCard = memo(({ subject, onDelete, onEdit, onReset }) => {
+const SubjectCard = memo(({ subject, onDelete, onEdit, onUndo, onMark }) => {
   const { stats } = subject;
   const pct = stats?.percentage || 0;
-  const needMore = stats?.isCritical ? (stats?.missing || 0) : 0;
+  const isCritical = stats?.isCritical;
+  const needMore = isCritical ? (stats?.missing || 0) : 0;
 
   return (
-    <div className="glass-card-precise flex flex-col min-h-[320px] relative overflow-hidden ag-animate-in">
+    <div className={`glass-card-precise flex flex-col relative overflow-hidden ag-animate-in${isCritical ? ' card--critical' : ''}`}>
 
       {/* Card Header */}
       <div className="relative z-10 p-6 pb-3 flex justify-between items-start">
@@ -160,45 +161,65 @@ const SubjectCard = memo(({ subject, onDelete, onEdit, onReset }) => {
         <div className="text-7xl font-black text-gradient-cyan-purple tracking-tighter leading-none">
           {pct}%
         </div>
-        <p className={`status-badge mt-3 ${stats?.isCritical ? 'status-badge--critical' : 'status-badge--safe'}`}>
+        <p className={`status-badge mt-3 ${isCritical ? 'status-badge--critical' : 'status-badge--safe'}`}>
           {pct < subject.target ? `${subject.target}% Target` : 'On Track ✓'}
         </p>
       </div>
 
-      {/* ── 3-COLUMN STATS ── */}
-      <div className="relative z-10 grid grid-cols-3 border-t border-white/5 bg-black/20">
-        <div className="flex flex-col items-center py-4 px-2 gap-1">
+      {/* ── 2-COLUMN STATS ── */}
+      <div className="relative z-10 grid grid-cols-2 border-t border-white/5 bg-black/20">
+        <div className="flex flex-col items-center py-3 px-2 gap-1">
           <span className="text-[0.6rem] font-bold uppercase tracking-widest text-slate-500">Present</span>
           <span className="text-xl font-bold text-emerald-400">{stats?.present || 0}</span>
         </div>
-        <div className="flex flex-col items-center py-4 px-2 gap-1 border-x border-white/5">
+        <div className="flex flex-col items-center py-3 px-2 gap-1 border-l border-white/5">
           <span className="text-[0.6rem] font-bold uppercase tracking-widest text-slate-500">Total Held</span>
           <span className="text-xl font-bold text-slate-300">{stats?.total || 0}</span>
         </div>
-        <div className="flex flex-col items-center py-4 px-2 gap-1">
-          <span className="text-[0.6rem] font-bold uppercase tracking-widest text-slate-500">Need More</span>
-          <span className={`text-xl font-bold ${needMore > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-            {needMore > 0 ? needMore : '—'}
-          </span>
-        </div>
       </div>
 
-      {/* ── RESET BUTTON ── */}
-      <div className="relative z-10 p-3">
+      {/* ── CRITICAL BANNER — only when below target ── */}
+      {isCritical && needMore > 0 && (
+        <div className="card-critical-banner">
+          <AlertTriangle size={11} />
+          Attend <strong>{needMore}</strong> more to reach {subject.target}%
+        </div>
+      )}
+
+      {/* ── P / A MARK BUTTONS ── */}
+      <div className="action-subpanel relative z-10">
         <button
-          onClick={() => onReset(subject)}
-          className="reset-btn w-full flex items-center justify-center gap-2"
-          aria-label="Reset attendance"
+          onClick={() => onMark(subject.id, 'p')}
+          className="action-btn-touch action-btn-touch--present"
+          aria-label="Mark present today"
         >
-          <RotateCcw size={14} />
-          Reset Attendance
+          <Check size={20} strokeWidth={2.5} />
+        </button>
+        <button
+          onClick={() => onMark(subject.id, 'a')}
+          className="action-btn-touch action-btn-touch--absent"
+          aria-label="Mark absent today"
+        >
+          <X size={20} strokeWidth={2.5} />
+        </button>
+      </div>
+
+      {/* ── UNDO BUTTON ── */}
+      <div className="relative z-10 p-3 pt-1">
+        <button
+          onClick={() => onUndo(subject)}
+          className="reset-btn w-full flex items-center justify-center gap-2"
+          aria-label="Undo last entry"
+        >
+          <RotateCcw size={12} />
+          Undo Last
         </button>
       </div>
 
       {/* ── NEON PROGRESS BAR ── */}
       <div className="progress-bar-track">
         <div
-          className={`progress-bar-fill ${stats?.isCritical ? 'progress-bar-fill--critical' : 'progress-bar-fill--healthy'}`}
+          className={`progress-bar-fill ${isCritical ? 'progress-bar-fill--critical' : 'progress-bar-fill--healthy'}`}
           style={{ width: `${pct}%` }}
         ></div>
       </div>
@@ -443,12 +464,13 @@ const App = () => {
   }, [newSub, editSubject, fetchSubjects, addToast]);
 
   // ─────────────────────────────────────────────────────────
-  // markAttendance — Native Supabase UPSERT (requires unique constraint on subject_id+date)
+  // markAttendance — delete-then-insert (works with or without unique constraint)
+  // overrideDate: pass new Date() from dashboard to mark today; undefined = use selectedDate (calendar)
   // ─────────────────────────────────────────────────────────
-  const markAttendance = useCallback(async (subjectId, status) => {
+  const markAttendance = useCallback(async (subjectId, status, overrideDate) => {
     const dbStatus = status === 'p' ? 'present' : status === 'a' ? 'absent' : 'holiday';
     const optimisticStatus = status === 'p' ? 'p' : status === 'a' ? 'a' : 'holiday';
-    const dateStr = toDateStr(selectedDate);
+    const dateStr = toDateStr(overrideDate ?? selectedDate);
 
     // Optimistic update — instantly reflect in UI
     let previousSubjects;
@@ -456,22 +478,34 @@ const App = () => {
       previousSubjects = prev;
       return prev.map(s => {
         if (s.id !== subjectId) return s;
+    if (!overrideDate) {
+        // CALENDAR: remove the existing log for this date so we replace it
         const filteredHistory = s.history.filter(log => log.date !== dateStr);
         const newLog = { id: `optimistic-${Date.now()}`, date: dateStr, status: optimisticStatus };
         const updatedHistory = [...filteredHistory, newLog];
         const updatedStats = calculateSubjectStats({ ...s, history: updatedHistory, target: s.target });
         return { ...s, history: updatedHistory, stats: updatedStats };
+      } else {
+        // DASHBOARD: append a new session entry
+        const newLog = { id: `optimistic-${Date.now()}`, date: dateStr, status: optimisticStatus };
+        const updatedHistory = [...s.history, newLog];
+        const updatedStats = calculateSubjectStats({ ...s, history: updatedHistory, target: s.target });
+        return { ...s, history: updatedHistory, stats: updatedStats };
+      }
       });
     });
 
-    // Step 1: Delete any existing log for this (subject_id, date) — no-op if none exists
-    await supabase
-      .from('attendance_logs')
-      .delete()
-      .eq('subject_id', subjectId)
-      .eq('date', dateStr);
+    if (!overrideDate) {
+      // CALENDAR MODE: delete existing log for this date, then insert (replace semantics)
+      await supabase
+        .from('attendance_logs')
+        .delete()
+        .eq('subject_id', subjectId)
+        .eq('date', dateStr);
+    }
+    // DASHBOARD MODE: no delete — just append a new entry (multi-session per day)
 
-    // Step 2: Insert the fresh status
+    // Insert fresh status
     const { error } = await supabase
       .from('attendance_logs')
       .insert([{ subject_id: subjectId, status: dbStatus, date: dateStr }]);
@@ -776,7 +810,8 @@ const App = () => {
                     subject={s}
                     onDelete={deleteSubject}
                     onEdit={openEditModal}
-                    onReset={resetAttendance}
+                    onUndo={undoLast}
+                    onMark={(subjectId, status) => markAttendance(subjectId, status, new Date())}
                   />
                 ))}
               </div>
