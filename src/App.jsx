@@ -1,4 +1,5 @@
-// 1. Core Component Imports
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 
@@ -131,97 +132,165 @@ const NavButton = memo(({ icon: Icon, active, onClick }) => (
 ));
 NavButton.displayName = 'NavButton';
 
-// ─── Memoized Anti-Gravity Subject Card ───
+// ─── Memoized Liquid-Glass Subject Card ───
 const SubjectCard = memo(({ subject, onDelete, onEdit, onUndo, onMark }) => {
   const { stats } = subject;
   const pct = stats?.percentage || 0;
   const isCritical = stats?.isCritical;
   const needMore = isCritical ? (stats?.missing || 0) : 0;
+  const cardRef = useRef(null);
+  const rippleTimeoutRef = useRef(null);
+
+  // ── Cursor-Tracked Spotlight ──
+  const handleMouseMove = useCallback((e) => {
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    card.style.setProperty('--mouse-x', `${x}%`);
+    card.style.setProperty('--mouse-y', `${y}%`);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    card.style.setProperty('--mouse-x', `50%`);
+    card.style.setProperty('--mouse-y', `50%`);
+  }, []);
+
+  // ── Pulse Glow Feedback (replaces janky snap) ──
+  const triggerPulseGlow = useCallback((type) => {
+    const card = cardRef.current;
+    if (!card) return;
+    const flashClass = type === 'p' ? 'card--flash-present' : 'card--flash-absent';
+    // Remove any existing flash/ripple
+    card.classList.remove('card--flash-present', 'card--flash-absent', 'card--ripple-present', 'card--ripple-absent');
+    // Force reflow so re-adding the class restarts the animation
+    void card.offsetWidth;
+    // Apply border flash + ripple
+    card.classList.add(flashClass);
+    card.classList.add(type === 'p' ? 'card--ripple-present' : 'card--ripple-absent');
+    clearTimeout(rippleTimeoutRef.current);
+    rippleTimeoutRef.current = setTimeout(() => {
+      card.classList.remove(flashClass, 'card--ripple-present', 'card--ripple-absent');
+    }, 600);
+  }, []);
+
+  const handleMarkPresent = useCallback(() => {
+    triggerPulseGlow('p');
+    onMark(subject.id, 'p');
+  }, [subject.id, onMark, triggerPulseGlow]);
+
+  const handleMarkAbsent = useCallback(() => {
+    triggerPulseGlow('a');
+    onMark(subject.id, 'a');
+  }, [subject.id, onMark, triggerPulseGlow]);
 
   return (
-    <div className={`glass-card-precise flex flex-col relative overflow-hidden ag-animate-in${isCritical ? ' card--critical' : ''}`}>
+    <div
+      ref={cardRef}
+      className={`liquid-glass-card ag-animate-in${isCritical ? ' card--critical' : ''}`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ '--mouse-x': '50%', '--mouse-y': '50%' }}
+    >
+      {/* ── Layer 1: Inner Reflection (top-left light band) ── */}
+      <div className="lg-reflection" aria-hidden="true" />
+      {/* ── Layer 2: Cursor Spotlight ── */}
+      <div className="lg-spotlight" aria-hidden="true" />
+      {/* ── Ripple overlay ── */}
+      <div className="lg-ripple" aria-hidden="true" />
 
       {/* Card Header */}
-      <div className="relative z-10 p-6 pb-3 flex justify-between items-start">
-        <h3 className="font-bold text-xl text-white tracking-wide break-words leading-tight pr-2" style={{maxWidth:'calc(100% - 5rem)'}}>
+      <div className="lg-header">
+        <h3 className="lg-title">
           {subject.name}
         </h3>
-        <div className="flex gap-1 shrink-0">
-          <button onClick={() => onEdit(subject)} className="action-btn-touch action-btn-touch--undo p-2" aria-label="Edit subject">
-            <Pencil size={14} />
+        <div className="lg-header-actions">
+          <button onClick={() => onEdit(subject)} className="lg-icon-btn" aria-label="Edit subject">
+            <Pencil size={13} />
           </button>
-          <button onClick={() => onDelete(subject.id)} className="action-btn-touch action-btn-touch--absent p-2" aria-label="Delete subject">
-            <Trash2 size={14} />
+          <button onClick={() => onDelete(subject.id)} className="lg-icon-btn lg-icon-btn--danger" aria-label="Delete subject">
+            <Trash2 size={13} />
           </button>
         </div>
       </div>
 
-      {/* ── HERO: Big % ── */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-2">
-        <div className="text-7xl font-black text-gradient-cyan-purple tracking-tighter leading-none">
-          {pct}%
+      {/* ── HERO: Big % with circular ring ── */}
+      <div className="lg-hero">
+        <div className="lg-ring-container">
+          <svg className="lg-progress-ring" viewBox="0 0 120 120">
+            <circle className="lg-ring-track" cx="60" cy="60" r="52" />
+            <circle
+              className={`lg-ring-fill ${isCritical ? 'lg-ring-fill--critical' : ''}`}
+              cx="60" cy="60" r="52"
+              style={{ strokeDashoffset: 326.73 - (326.73 * pct / 100) }}
+            />
+          </svg>
+          <div className="lg-pct-value">
+            {pct}<span className="lg-pct-symbol">%</span>
+          </div>
         </div>
-        <p className={`status-badge mt-3 ${isCritical ? 'status-badge--critical' : 'status-badge--safe'}`}>
-          {pct < subject.target ? `${subject.target}% Target` : 'On Track ✓'}
+        <p className={`lg-status ${isCritical ? 'lg-status--critical' : 'lg-status--safe'}`}>
+          {pct < subject.target ? `Need ${subject.target}%` : 'On Track'}
         </p>
       </div>
 
-      {/* ── 2-COLUMN STATS ── */}
-      <div className="relative z-10 grid grid-cols-2 border-t border-white/5 bg-black/20">
-        <div className="flex flex-col items-center py-3 px-2 gap-1">
-          <span className="text-[0.6rem] font-bold uppercase tracking-widest text-slate-500">Present</span>
-          <span className="text-xl font-bold text-emerald-400">{stats?.present || 0}</span>
+      {/* ── Stats Row ── */}
+      <div className="lg-stats-row">
+        <div className="lg-stat">
+          <span className="lg-stat-value lg-stat-value--green">{stats?.present || 0}</span>
+          <span className="lg-stat-label">Present</span>
         </div>
-        <div className="flex flex-col items-center py-3 px-2 gap-1 border-l border-white/5">
-          <span className="text-[0.6rem] font-bold uppercase tracking-widest text-slate-500">Total Held</span>
-          <span className="text-xl font-bold text-slate-300">{stats?.total || 0}</span>
+        <div className="lg-stat-divider" />
+        <div className="lg-stat">
+          <span className="lg-stat-value">{stats?.total || 0}</span>
+          <span className="lg-stat-label">Total</span>
         </div>
       </div>
 
-      {/* ── CRITICAL BANNER — only when below target ── */}
+      {/* ── CRITICAL BANNER ── */}
       {isCritical && needMore > 0 && (
-        <div className="card-critical-banner">
+        <div className="lg-critical-banner">
           <AlertTriangle size={11} />
-          Attend <strong>{needMore}</strong> more to reach {subject.target}%
+          <span>Attend <strong>{needMore}</strong> more to hit {subject.target}%</span>
         </div>
       )}
 
-      {/* ── P / A MARK BUTTONS ── */}
-      <div className="action-subpanel relative z-10">
+      {/* ── Orbital Action Controls ── */}
+      <div className="lg-controls">
         <button
-          onClick={() => onMark(subject.id, 'p')}
-          className="action-btn-touch action-btn-touch--present"
-          aria-label="Mark present today"
+          onClick={handleMarkPresent}
+          className="lg-action-btn lg-action-btn--present"
+          aria-label="Mark present"
         >
-          <Check size={20} strokeWidth={2.5} />
+          <Check size={18} strokeWidth={2.5} />
+          <span className="lg-action-label">Present</span>
         </button>
         <button
-          onClick={() => onMark(subject.id, 'a')}
-          className="action-btn-touch action-btn-touch--absent"
-          aria-label="Mark absent today"
+          onClick={handleMarkAbsent}
+          className="lg-action-btn lg-action-btn--absent"
+          aria-label="Mark absent"
         >
-          <X size={20} strokeWidth={2.5} />
+          <X size={18} strokeWidth={2.5} />
+          <span className="lg-action-label">Absent</span>
         </button>
-      </div>
-
-      {/* ── UNDO BUTTON ── */}
-      <div className="relative z-10 p-3 pt-1">
         <button
           onClick={() => onUndo(subject)}
-          className="reset-btn w-full flex items-center justify-center gap-2"
-          aria-label="Undo last entry"
+          className="lg-action-btn lg-action-btn--undo"
+          aria-label="Undo last"
         >
-          <RotateCcw size={12} />
-          Undo Last
+          <RotateCcw size={14} strokeWidth={2} />
         </button>
       </div>
 
-      {/* ── NEON PROGRESS BAR ── */}
-      <div className="progress-bar-track">
+      {/* ── Bottom Edge Glow ── */}
+      <div className="lg-edge-glow">
         <div
-          className={`progress-bar-fill ${isCritical ? 'progress-bar-fill--critical' : 'progress-bar-fill--healthy'}`}
+          className={`lg-edge-fill ${isCritical ? 'lg-edge-fill--critical' : ''}`}
           style={{ width: `${pct}%` }}
-        ></div>
+        />
       </div>
     </div>
   );
@@ -340,8 +409,8 @@ const App = () => {
   const subjectsRef = useRef(subjects);
   useEffect(() => { subjectsRef.current = subjects; }, [subjects]);
 
-  // ─── Edit state ───
   const [editSubject, setEditSubject] = useState(null); // null = new, object = edit mode
+  const isFetching = useRef(false);
 
   // ─── Toast helpers ───
   const addToast = useCallback((message, type = 'success') => {
@@ -354,36 +423,49 @@ const App = () => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  // ─── FIX #2 + #3: Normalize dates to YYYY-MM-DD on fetch ───
-  // IMPORTANT: fetchSubjects MUST be declared BEFORE the useEffect that calls it
   const fetchSubjects = useCallback(async () => {
-    const { data, error } = await supabase.from('subjects').select('*, attendance_logs(*)');
-    if (error) {
-      addToast('Failed to load subjects. Please refresh.', 'error');
-    } else if (data) {
-      const transformedData = data.map(s => {
-        // FIX #3: sort by created_at desc so .find() hits the latest log
-        const sortedLogs = [...(s.attendance_logs || [])].sort(
-          (a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date)
-        );
-        const history = sortedLogs.map(log => ({
-          id: log.id,
-          // FIX #2: store as normalized YYYY-MM-DD string, no timezone drift
-          date: toDateStr(log.date),
-          status: log.status === 'present' ? 'p' : log.status === 'absent' ? 'a' : 'holiday'
-        }));
-        const stats = calculateSubjectStats({ ...s, history, target: s.target_percentage });
-        return { ...s, target: s.target_percentage, history, stats };
-      });
-      setSubjects(transformedData);
+    if (isFetching.current) return;
+    isFetching.current = true;
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.from('subjects').select('*, attendance_logs(*)');
+      if (error) {
+        addToast('Failed to load subjects.', 'error');
+      } else if (data) {
+        const transformedData = data.map(s => {
+          const sortedLogs = [...(s.attendance_logs || [])].sort(
+            (a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date)
+          );
+          const history = sortedLogs.map(log => ({
+            id: log.id,
+            date: toDateStr(log.date),
+            status: log.status === 'present' ? 'p' : log.status === 'absent' ? 'a' : 'holiday'
+          }));
+          const stats = calculateSubjectStats({ ...s, history, target: s.target_percentage });
+          return { ...s, target: s.target_percentage, history, stats };
+        });
+        setSubjects(transformedData);
+      }
+    } catch (err) {
+      console.error('[App] fetchSubjects err:', err);
+    } finally {
+      isFetching.current = false;
+      setLoading(false);
     }
-    setLoading(false); // only turns off — initial loading=true set by auth effect
   }, [addToast]);
 
   useEffect(() => {
+    let mounted = true;
     if (window.location.hash.includes('type=recovery')) setIsResetting(true);
-    const getSession = async () => {
+
+    const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
       setUser(session?.user ?? null);
       if (session?.user) {
         setLoading(true);
@@ -392,10 +474,13 @@ const App = () => {
         setLoading(false);
       }
     };
-    getSession();
+    init();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
+      if (!mounted) return;
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
         setLoading(true);
         fetchSubjects();
       } else {
@@ -403,30 +488,116 @@ const App = () => {
         setLoading(false);
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchSubjects]);
 
-  const downloadAttendanceCSV = useCallback(() => {
-    let csvContent = "Subject,Target %,Present,Absent,Holidays,Total Conducted,Current %,Status\n";
-    subjects.forEach(s => {
+  const exportToPDF = useCallback(() => {
+    const doc = new jsPDF();
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString();
+
+    // 1. Header & Title
+    doc.setFontSize(22);
+    doc.setTextColor(99, 102, 241); // Indigo
+    doc.text("Attendance Tracker Pro", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${dateStr} at ${timeStr}`, 14, 28);
+    doc.text(`User: ${user?.email || 'Anonymous'}`, 14, 33);
+
+    // 2. Summary Table
+    doc.setFontSize(16);
+    doc.setTextColor(0);
+    doc.text("Subject Summary", 14, 45);
+
+    const summaryData = subjects.map(s => {
       const stats = s.stats || calculateSubjectStats(s);
-      const row = [
-        s.name, `${s.target}%`, stats.present,
+      return [
+        s.name,
+        `${s.target}%`,
+        stats.present,
         s.history.filter(h => h.status === 'a').length,
         s.history.filter(h => h.status === 'holiday').length,
-        stats.total, `${stats.percentage}%`,
+        stats.total,
+        `${stats.percentage}%`,
         stats.isCritical ? "DANGER" : "SAFE"
-      ].join(",");
-      csvContent += row + "\n";
+      ];
     });
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Attendance_Report_${new Date().toLocaleDateString()}.csv`;
-    link.click();
-    addToast('Report downloaded!', 'success');
-  }, [subjects, addToast]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [["Subject", "Target", "Present", "Absent", "Holidays", "Total", "Current", "Status"]],
+      body: summaryData,
+      headStyles: { fillColor: [99, 102, 241] },
+      alternateRowStyles: { fillColor: [245, 247, 255] },
+      styles: { fontSize: 9 },
+      columnStyles: { 7: { fontStyle: 'bold' } },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 7) {
+          if (data.cell.raw === 'DANGER') data.cell.styles.textColor = [239, 68, 68];
+          else data.cell.styles.textColor = [16, 185, 129];
+        }
+      }
+    });
+
+    // 3. Daily History Table
+    let nextY = 150;
+    if (doc.lastAutoTable) {
+        nextY = doc.lastAutoTable.finalY + 15;
+    }
+    
+    doc.setFontSize(16);
+    doc.text("Daily Attendance History", 14, nextY);
+
+    const dailyLogs = [];
+    subjects.forEach(s => {
+      s.history.forEach(log => {
+        dailyLogs.push({
+          date: log.date,
+          subject: s.name,
+          status: log.status === 'p' ? 'Present' : log.status === 'a' ? 'Absent' : 'Holiday',
+          statusRaw: log.status
+        });
+      });
+    });
+
+    dailyLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    autoTable(doc, {
+      startY: nextY + 5,
+      head: [["Date", "Subject", "Status"]],
+      body: dailyLogs.map(log => [log.date, log.subject, log.status]),
+      headStyles: { fillColor: [100, 116, 139] },
+      alternateRowStyles: { fillColor: [250, 250, 252] },
+      margin: { bottom: 20 },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 2) {
+          const status = dailyLogs[data.row.index].statusRaw;
+          if (status === 'p') data.cell.styles.textColor = [16, 185, 129];
+          else if (status === 'a') data.cell.styles.textColor = [239, 68, 68];
+          else if (status === 'holiday') data.cell.styles.textColor = [245, 158, 11];
+        }
+      }
+    });
+
+    // Page Numbers
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+    }
+
+    doc.save(`Attendance_Report_${dateStr}.pdf`);
+    addToast('PDF Report generated!', 'success');
+  }, [subjects, user, addToast]);
 
   const addSubject = useCallback(async () => {
     const name = (editSubject?.name ?? newSub.name).trim();
@@ -745,6 +916,15 @@ const App = () => {
   // ─── Main Dashboard ───
   return (
     <div className="ag-layout">
+      {/* Hidden SVG gradient defs for progress rings */}
+      <svg width="0" height="0" style={{ position: 'absolute' }}>
+        <defs>
+          <linearGradient id="lg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#00f2ea" />
+            <stop offset="100%" stopColor="#a855f7" />
+          </linearGradient>
+        </defs>
+      </svg>
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
       {/* ═══ FLOATING NAVIGATION — z-index: 100 ═══ */}
@@ -1033,10 +1213,10 @@ const App = () => {
               <div className="p-6 flex items-center justify-between">
                 <div>
                   <h4 className="font-bold text-lg text-white">Export Data</h4>
-                  <p className="text-sm text-slate-400">Download your attendance report (.csv)</p>
+                  <p className="text-sm text-slate-400">Download your full attendance report (.pdf)</p>
                 </div>
-                <GlassButton onClick={downloadAttendanceCSV} variant="primary">
-                  <Download size={20} /> CSV
+                <GlassButton onClick={exportToPDF} variant="primary">
+                  <Download size={20} /> PDF
                 </GlassButton>
               </div>
             </GlassCard>
