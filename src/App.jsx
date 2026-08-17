@@ -433,10 +433,47 @@ const App = () => {
         return;
       }
 
-      const { data, error } = await supabase.from('subjects').select('*, attendance_logs(*)');
+      let { data, error } = await supabase
+        .from('subjects')
+        .select('*, attendance_logs(*)')
+        .eq('user_id', currentUser.id);
+
       if (error) {
-        addToast('Failed to load subjects.', 'error');
-      } else if (data) {
+        console.warn('[App] Primary fetch (nested join) failed, trying fallback:', error);
+        
+        // Fallback: Query subjects by user_id first
+        const { data: subData, error: subError } = await supabase
+          .from('subjects')
+          .select('*')
+          .eq('user_id', currentUser.id);
+
+        if (subError) {
+          console.error('[App] fetchSubjects error:', subError);
+          addToast(`Failed to load subjects: ${subError.message || subError}`, 'error');
+          return;
+        }
+
+        if (subData) {
+          const subjectIds = subData.map(s => s.id);
+          let logs = [];
+          if (subjectIds.length > 0) {
+            const { data: logData, error: logError } = await supabase
+              .from('attendance_logs')
+              .select('*')
+              .in('subject_id', subjectIds);
+            if (!logError && logData) {
+              logs = logData;
+            }
+          }
+          data = subData.map(s => ({
+            ...s,
+            attendance_logs: logs.filter(l => l.subject_id === s.id)
+          }));
+          error = null;
+        }
+      }
+
+      if (data) {
         const transformedData = data.map(s => {
           const sortedLogs = [...(s.attendance_logs || [])].sort(
             (a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date)
@@ -453,6 +490,7 @@ const App = () => {
       }
     } catch (err) {
       console.error('[App] fetchSubjects err:', err);
+      addToast(`Error loading subjects: ${err.message || err}`, 'error');
     } finally {
       isFetching.current = false;
       setLoading(false);
@@ -476,8 +514,11 @@ const App = () => {
     };
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResetting(true);
+      }
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
