@@ -150,8 +150,9 @@ const Auth = () => {
       return;
     }
     setLoading(true);
+    const redirectUrl = `${window.location.origin}/reset-password`;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://attendance-tracker-pro-delta.vercel.app/reset-password',
+      redirectTo: redirectUrl,
     });
     setLoading(false);
     if (error) {
